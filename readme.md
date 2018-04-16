@@ -9,16 +9,15 @@
 - Export Sales Ledger
 - Export Customers
 - Export Gift Cards
-- Export Store Credits
 - Export Images
 - Import Images
 - Import Store Credits
 - Import Suppliers
-- Void Gift Cards 
+- Void Gift Cards
 
 ## Usage Examples
 
-When running a command you need to pass the flags that specify the parameters for that tool. There are two sets of flags, global flags and command flags. Global flags such as domain prefix and token are required on all commands and command flags are passed depending on the tool. 
+When running a command you need to pass the flags that specify the parameters for that tool. There are two sets of flags, global flags and command flags. Global flags such as domain prefix and token are required on all commands and command flags are passed depending on the tool.
 
 #### Export Sales Ledger
 
