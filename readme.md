@@ -31,10 +31,6 @@ When running a command you need to pass the flags that specify the parameters fo
 
 	$ vend export-giftcards -d domainprefix -t token
 
-#### Export Store Credits
-
-	$ vend export-storecredits -d domainprefix -t token
-
 #### Export Images
 
 	$ vend export-images -d domainprefix -t token
