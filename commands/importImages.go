@@ -263,7 +263,7 @@ func urlGet(url string) ([]byte, error) {
 	// Doing the request.
 	res, err := client.Get(url)
 	if err != nil {
-		fmt.Printf("Error performing request")
+		log.Fatalf("Error performing request")
 		return nil, err
 	}
 	// Make sure response body is closed at end.
@@ -271,7 +271,7 @@ func urlGet(url string) ([]byte, error) {
 
 	// Check HTTP response.
 	if !vend.ResponseCheck(res.StatusCode) {
-		fmt.Printf("Status: %v", res.StatusCode)
+		fmt.Printf("Status Code: %v", res.StatusCode)
 		return nil, err
 	}
 
