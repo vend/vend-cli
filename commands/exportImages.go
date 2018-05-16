@@ -18,7 +18,7 @@ var exportImagesCmd = &cobra.Command{
 	Short: "Export Product Images",
 	Long: `
 Example:
-vendcli export-images -d DOMAINPREFIX -t TOKEN`,
+vend export-images -d DOMAINPREFIX -t TOKEN`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		getAllImages()

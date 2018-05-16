@@ -20,7 +20,7 @@ var importStorecreditCmd = &cobra.Command{
 This tool requires the Store Credit CSV template, you can download it here: https://cl.ly/qnMJ
 
 Example:
-vendcli import-storecredits -d DOMAINPREFIX -t TOKEN -f filename.csv`,
+vend import-storecredits -d DOMAINPREFIX -t TOKEN -f filename.csv`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		importStoreCredit()

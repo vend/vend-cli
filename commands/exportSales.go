@@ -19,7 +19,7 @@ var exportSalesCmd = &cobra.Command{
 	Short: "Export Sales",
 	Long: `
 Example:
-vendcli export-sales -d DOMAINPREFIX -t TOKEN -z Pacific/Auckland -F 2018-03-01 -T 2018-04-01 -o 'OUTLETNAME'
+vend export-sales -d DOMAINPREFIX -t TOKEN -z Pacific/Auckland -F 2018-03-01 -T 2018-04-01 -o 'OUTLETNAME'
 
 The Date from: F and Date to: T need to be capitalized.  
 `,

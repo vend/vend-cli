@@ -18,7 +18,7 @@ var importSuppliersCmd = &cobra.Command{
 This tool requires the Supplier CSV template, you can download it here: https://cl.ly/qoDF
 
 Example:
-vendcli import-suppliers -d DOMAINPREFIX -t TOKEN -f filename.csv`,
+vend import-suppliers -d DOMAINPREFIX -t TOKEN -f filename.csv`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		importSuppliers()

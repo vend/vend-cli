@@ -17,7 +17,7 @@ var exportCustomersCmd = &cobra.Command{
 	Short: "Export Customers",
 	Long: `
 Example:
-vendcli export-customers -d DOMAINPREFIX -t TOKEN`,
+vend export-customers -d DOMAINPREFIX -t TOKEN`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		getAllCustomers()

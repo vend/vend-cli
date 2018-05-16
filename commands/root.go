@@ -21,7 +21,7 @@ var (
 
 // importSuppliersCmd represents the importSuppliers command
 var rootCmd = &cobra.Command{
-	Use:   "vendcli",
+	Use:   "vend",
 	Short: "A CLI tool for Vend",
 	Long: `
 Vend is a CLI tool to interact with the Vend API.
@@ -32,19 +32,11 @@ Domain Prefix and Token are required on all commands and then command flags
 are passed depending on the tool. 
 	
 To run a tool:
-Type vendcli followed by the command you wish to run and then the flags
+Type vend followed by the command you wish to run and then the flags
 [vend] [command] [flags]
 
 Example: 
-vendcli export-customers -d domainprefix -t token`,
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	// Get store info from command line flags.
-	rootCmd.PersistentFlags().StringVarP(&DomainPrefix, "Domain", "d", "", "The Vend store name (prefix in xxxx.vendhq.com)")
-	rootCmd.PersistentFlags().StringVarP(&Token, "Token", "t", "", "Personal API Access Token for the store, generated from Setup -> Personal Tokens.")
+vend export-customers -d domainprefix -t token`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -54,6 +46,14 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func init() {
+	cobra.OnInitialize(initConfig)
+
+	// Get store info from command line flags.
+	rootCmd.PersistentFlags().StringVarP(&DomainPrefix, "Domain", "d", "", "The Vend store name (prefix in xxxx.vendhq.com)")
+	rootCmd.PersistentFlags().StringVarP(&Token, "Token", "t", "", "Personal API Access Token for the store, generated from Setup -> Personal Tokens.")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -69,9 +69,9 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".vendcli" (without extension).
+		// Search config in home directory with name ".vend" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".vendcli")
+		viper.SetConfigName(".vend")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

@@ -24,7 +24,7 @@ var importImagesCmd = &cobra.Command{
 This tool requires the Import Images CSV template, you can download it here: https://cl.ly/qn7y
 
 Example:
-vendcli import-images -d DOMAINPREFIX -t TOKEN -f filename.csv`,
+vend import-images -d DOMAINPREFIX -t TOKEN -f filename.csv`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		run()
