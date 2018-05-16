@@ -17,7 +17,7 @@ var exportGiftcardsCmd = &cobra.Command{
 	Short: "Export Gift Cards",
 	Long: `
 Example:
-vend export-giftcards -d DOMAINPREFIX -t TOKEN`,
+vendcli export-giftcards -d DOMAINPREFIX -t TOKEN`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		getGiftCards()

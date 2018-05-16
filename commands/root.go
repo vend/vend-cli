@@ -21,7 +21,7 @@ var (
 
 // importSuppliersCmd represents the importSuppliers command
 var rootCmd = &cobra.Command{
-	Use:   "vend",
+	Use:   "vendcli",
 	Short: "A CLI tool for Vend",
 	Long: `
 Vend is a CLI tool to interact with the Vend API.
@@ -32,11 +32,11 @@ Domain Prefix and Token are required on all commands and then command flags
 are passed depending on the tool. 
 	
 To run a tool:
-Type vend followed by the command you wish to run and then the flags
-[vend] [command] [flags]
+Type vendcli followed by the command you wish to run and then the flags
+[vendcli] [command] [flags]
 
 Example: 
-vend export-customers -d domainprefix -t token`,
+vendcli export-customers -d domainprefix -t token`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -71,7 +71,7 @@ func initConfig() {
 
 		// Search config in home directory with name ".vend" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".vend")
+		viper.SetConfigName(".vendcli")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

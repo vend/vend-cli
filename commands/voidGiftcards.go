@@ -18,7 +18,7 @@ var voidGiftcardsCmd = &cobra.Command{
 This tool requires the Gift Card CSV template, you can download it here: https://cl.ly/qq9a,
 
 Example:
-vend void-giftcards -d DOMAINPREFIX -t TOKEN -f filename.csv`,
+vendcli void-giftcards -d DOMAINPREFIX -t TOKEN -f filename.csv`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		voidGiftCards()
