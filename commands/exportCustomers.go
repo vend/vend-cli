@@ -80,6 +80,7 @@ func cWriteFile(customers []vend.Customer, DomainPrefix string) error {
 	header = append(header, "gender")
 	header = append(header, "date_of_birth")
 	header = append(header, "company_name")
+	header = append(header, "do_not_email")
 	header = append(header, "phone")
 	header = append(header, "mobile")
 	header = append(header, "fax")
@@ -110,7 +111,7 @@ func cWriteFile(customers []vend.Customer, DomainPrefix string) error {
 	// Now loop through each customer object and populate the CSV.
 	for _, customer := range customers {
 
-		var id, code, firstName, lastName, email, yearToDate, balance, loyaltyBalance, note, gender, dateOfBirth, companyName, phone, mobile, fax, twitter,
+		var id, code, firstName, lastName, email, yearToDate, balance, loyaltyBalance, note, gender, dateOfBirth, companyName, doNotEmail, phone, mobile, fax, twitter,
 			website, physicalSuburb, physicalCity, physicalPostcode, physicalState, postalSuburb, postalCity, postalState, createdAt, postalPostcode,
 			physicalAddress1, physicalAddress2, postalAddress1, postalAddress2, postalCountryID, customField1, customField2, customField3, customField4 string
 
@@ -149,6 +150,9 @@ func cWriteFile(customers []vend.Customer, DomainPrefix string) error {
 		}
 		if customer.CompanyName != nil {
 			companyName = *customer.CompanyName
+		}
+		if customer.DoNotEmail != nil {
+			doNotEmail = fmt.Sprintf("%t", *customer.DoNotEmail)
 		}
 		if customer.Phone != nil {
 			phone = *customer.Phone
@@ -233,6 +237,7 @@ func cWriteFile(customers []vend.Customer, DomainPrefix string) error {
 		record = append(record, gender)
 		record = append(record, dateOfBirth)
 		record = append(record, companyName)
+		record = append(record, doNotEmail)
 		record = append(record, phone)
 		record = append(record, mobile)
 		record = append(record, fax)
