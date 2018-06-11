@@ -7,17 +7,18 @@ import (
 	"os"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
 )
 
-// exportGiftcardsCmd represents the exportGiftcards command
+// Command config
 var exportGiftcardsCmd = &cobra.Command{
 	Use:   "export-giftcards",
 	Short: "Export Gift Cards",
-	Long: `
+	Long: fmt.Sprintf(`
 Example:
-vendcli export-giftcards -d DOMAINPREFIX -t TOKEN`,
+%s`, color.GreenString("vendcli export-giftcards -d DOMAINPREFIX -t TOKEN")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		getGiftCards()
@@ -31,19 +32,19 @@ func init() {
 // Run executes the process of exporting Gift Cards then writing them to CSV.
 func getGiftCards() {
 
-	// Create new Vend Client.
+	// Create new Vend Client
 	vc := vend.NewClient(Token, DomainPrefix, "")
 
-	// Get Gift Cards.
+	// Get Gift Cards
 	fmt.Println("Retrieving Gift Cards from Vend...")
 	giftCards, err := vc.GiftCards()
 	if err != nil {
-		log.Fatalf("Failed while retrieving gift cards: %v", err)
+		log.Fatalf("Failed while retrieving Gift Cards: %v", err)
 	}
 
 	// Write Gift Cards to CSV
 	fmt.Println("Writing Gift Cards to CSV file...")
-	err = gcWriterFile(giftCards, DomainPrefix)
+	err = gcWriterFile(giftCards)
 	if err != nil {
 		log.Fatalf("Failed while writing Gift Cards to CSV: %v", err)
 	}
@@ -51,7 +52,7 @@ func getGiftCards() {
 }
 
 // WriteFile writes Gift Cards to CSV
-func gcWriterFile(giftCards []vend.GiftCard, DomainPrefix string) error {
+func gcWriterFile(giftCards []vend.GiftCard) error {
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_giftcard_export_%v.csv", DomainPrefix, time.Now().Unix())

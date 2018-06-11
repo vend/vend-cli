@@ -7,17 +7,18 @@ import (
 	"os"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
 )
 
-// exportCustomersCmd represents the exportCustomers command
+// Command config
 var exportCustomersCmd = &cobra.Command{
 	Use:   "export-customers",
 	Short: "Export Customers",
-	Long: `
+	Long: fmt.Sprintf(`
 Example:
-vendcli export-customers -d DOMAINPREFIX -t TOKEN`,
+%s`, color.GreenString("vendcli export-customers -d DOMAINPREFIX -t TOKEN")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		getAllCustomers()
@@ -43,7 +44,7 @@ func getAllCustomers() {
 
 	// Write Customers to CSV
 	fmt.Println("Writing customers to CSV file...")
-	err = cWriteFile(customers, DomainPrefix)
+	err = cWriteFile(customers)
 	if err != nil {
 		log.Fatalf("Failed writing customers to CSV: %v", err)
 	}
@@ -51,7 +52,7 @@ func getAllCustomers() {
 }
 
 // WriteFile writes customer info to file.
-func cWriteFile(customers []vend.Customer, DomainPrefix string) error {
+func cWriteFile(customers []vend.Customer) error {
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_customer_export_%v.csv", DomainPrefix, time.Now().Unix())

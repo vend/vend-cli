@@ -9,36 +9,35 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
 )
 
-// exportSalesCmd represents the exportSales command
-var exportSalesCmd = &cobra.Command{
-	Use:   "export-sales",
-	Short: "Export Sales",
-	Long: `
-Example:
-vendcli export-sales -d DOMAINPREFIX -t TOKEN -z Pacific/Auckland -F 2018-03-01 -T 2018-04-01 -o 'OUTLETNAME'
-
-The Date from: F and Date to: T need to be capitalized.  
-`,
-
-	Run: func(cmd *cobra.Command, args []string) {
-		getAllSales()
-	},
-}
-
+// Command config
 var (
 	timeZone string
 	dateFrom string
 	dateTo   string
 	outlet   string
+	register string
+
+	exportSalesCmd = &cobra.Command{
+		Use:   "export-sales",
+		Short: "Export Sales",
+		Long: fmt.Sprintf(`
+Example:
+%s`, color.GreenString("vendcli export-sales -d DOMAINPREFIX -t TOKEN -z Pacific/Auckland -F 2018-03-01 -T 2018-04-01 -o 'OUTLETNAME'")),
+
+		Run: func(cmd *cobra.Command, args []string) {
+			getAllSales()
+		},
+	}
 )
 
 func init() {
 	// Flags
-	exportSalesCmd.Flags().StringVarP(&timeZone, "Timezone", "z", "", "Timezone of the store in zoneinfo format. The default is to try and use the computer's local timezone.")
+	exportSalesCmd.Flags().StringVarP(&timeZone, "Timezone", "z", "", "Timezone of the store in zoneinfo format.")
 	exportSalesCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DD)")
 	exportSalesCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DD)")
 	exportSalesCmd.Flags().StringVarP(&outlet, "Outlet", "o", "", "Outlet to export the sales from")
@@ -88,13 +87,13 @@ func getAllSales() {
 		log.Fatalf("Failed to get customers: %v", err)
 	}
 
-	// Get all products from the beginning of time.
+	// Get products.
 	products, _, err := vc.Products()
 	if err != nil {
 		log.Fatalf("Failed to get products: %v", err)
 	}
 
-	// Get Sale data
+	// Get Sale data.
 	sales, err := vc.SalesSearch(dateFrom, dateTo, outlet)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
@@ -118,7 +117,7 @@ func getAllSales() {
 func createReport(domainPrefix string) (*os.File, error) {
 
 	// Create blank CSV file to be written to.
-	fileName := fmt.Sprintf("%s_sales_history_%v.csv", domainPrefix, time.Now().Unix())
+	fileName := fmt.Sprintf("%s_sales_history_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
 		log.Fatalf("Error creating CSV file: %s", err)

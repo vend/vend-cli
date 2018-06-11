@@ -8,17 +8,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
 )
 
-// exportImagesCmd represents the exportImages command
+// Command config
 var exportImagesCmd = &cobra.Command{
 	Use:   "export-images",
 	Short: "Export Product Images",
-	Long: `
+	Long: fmt.Sprintf(`
 Example:
-vendcli export-images -d DOMAINPREFIX -t TOKEN`,
+%s`, color.GreenString("vendcli export-images -d DOMAINPREFIX -t TOKEN")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		getAllImages()
@@ -44,7 +45,7 @@ func getAllImages() {
 
 	// Write to CSV
 	fmt.Println("Writing images to CSV file...")
-	err = iWriteFile(images, DomainPrefix)
+	err = iWriteFile(images)
 	if err != nil {
 		log.Fatalf("Failed while writing images to CSV: %v", err)
 	}
@@ -53,7 +54,7 @@ func getAllImages() {
 }
 
 // WriteFile writes image URLs info to file.
-func iWriteFile(products []vend.Product, DomainPrefix string) error {
+func iWriteFile(products []vend.Product) error {
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_image_export_%v.csv", DomainPrefix, time.Now().Unix())
