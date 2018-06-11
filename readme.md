@@ -31,6 +31,14 @@ When running a command you need to pass the flags that specify the parameters fo
 
 	$ vendcli export-giftcards -d domainprefix -t token
 
+#### Export Store Credits
+
+	$ vendcli export-storecredits -d domainprefix -t token
+
+#### Export Suppliers
+
+	$ vendcli export-suppliers -d domainprefix -t token	
+
 #### Export Images
 
 	$ vendcli export-images -d domainprefix -t token
