@@ -8,19 +8,20 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
 )
 
-// importStorecreditCmd represents the importStorecredit command
+// Command config
 var importStorecreditCmd = &cobra.Command{
-	Use:   "import-storecredit",
+	Use:   "import-storecredits",
 	Short: "Import Store Credits",
-	Long: `
+	Long: fmt.Sprintf(`
 This tool requires the Store Credit CSV template, you can download it here: https://cl.ly/qnMJ
 
 Example:
-vendcli import-storecredits -d DOMAINPREFIX -t TOKEN -f filename.csv`,
+%s`, color.GreenString("vendcli import-storecredits -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		importStoreCredit()

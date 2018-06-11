@@ -6,19 +6,20 @@ import (
 	"log"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
 )
 
-// importSuppliersCmd represents the importSuppliers command
+// Command config
 var importSuppliersCmd = &cobra.Command{
 	Use:   "import-suppliers",
 	Short: "Import Suppliers",
-	Long: `
+	Long: fmt.Sprintf(`
 This tool requires the Supplier CSV template, you can download it here: https://cl.ly/qoDF
 
 Example:
-vendcli import-suppliers -d DOMAINPREFIX -t TOKEN -f filename.csv`,
+%s`, color.GreenString("vendcli import-suppliers -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		importSuppliers()
@@ -95,7 +96,7 @@ func readSupplierCSV(filePath string) ([]vend.SupplierBase, error) {
 	// Loop through rows and assign them to supplier type.
 	for _, row := range rawData {
 		supplier := vend.SupplierBase{
-			Name:        row[0],
+			Name:        &row[0],
 			Description: &row[1],
 			Contact: &vend.Contact{
 				FirstName:         &row[2],
@@ -138,7 +139,7 @@ func postSuppliers(suppliers []vend.SupplierBase) error {
 	// Posting Suppliers to Vend
 	fmt.Printf("%d Suppliers to post.\n \n", len(suppliers))
 	for _, supplier := range suppliers {
-		fmt.Printf("Posting: %v \n", supplier.Name)
+		fmt.Printf("Posting: %v \n", *supplier.Name)
 		// Create the Vend URL
 		url := fmt.Sprintf("https://%s.vendhq.com/api/supplier", DomainPrefix)
 

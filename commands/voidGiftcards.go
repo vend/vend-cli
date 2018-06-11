@@ -6,19 +6,20 @@ import (
 	"log"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
 )
 
-// voidGiftcardsCmd represents the voidGiftcards command
+// Command config
 var voidGiftcardsCmd = &cobra.Command{
 	Use:   "void-giftcards",
 	Short: "Void Gift Cards",
-	Long: `
+	Long: fmt.Sprintf(`
 This tool requires the Gift Card CSV template, you can download it here: https://cl.ly/qq9a,
 
 Example:
-vendcli void-giftcards -d DOMAINPREFIX -t TOKEN -f filename.csv`,
+%s`, color.GreenString("vendcli void-giftcards -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		voidGiftCards()
