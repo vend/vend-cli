@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -30,33 +31,21 @@ var rootCmd = &cobra.Command{
 	Short: fmt.Sprintf(`
 %s`, logo)}
 
-There are two sets of flags, global flags and command flags. Global flags such as 
-Domain Prefix and Token are required on all commands and then command flags 
-are passed depending on the tool. 
-	
-To run a tool:
-Type vendcli followed by the command you wish to run and then the flags
-[vendcli] [command] [flags]
-
-Example: 
-vendcli export-customers -d domainprefix -t token`,
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Get store info from command line flags.
 	rootCmd.PersistentFlags().StringVarP(&DomainPrefix, "Domain", "d", "", "The Vend store name (prefix in xxxx.vendhq.com)")
-	rootCmd.PersistentFlags().StringVarP(&Token, "Token", "t", "", "Personal API Access Token for the store, generated from Setup -> Personal Tokens.")
+	rootCmd.PersistentFlags().StringVarP(&Token, "Token", "t", "", "API Access Token for the store, Setup -> Personal Tokens.")
+	rootCmd.MarkPersistentFlagRequired("Domain")
+	rootCmd.MarkPersistentFlagRequired("Token")
+}
+
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
