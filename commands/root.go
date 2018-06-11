@@ -17,15 +17,18 @@ var (
 	vendClient   *vend.Client
 	FilePath     string
 	cfgFile      string
+	logo         = color.GreenString(`                             _ 
+ __   __   ___   _ __     __| |
+ \ \ / /  / _ \ | '_ \   / _  |
+  \ V /  |  __/ | | | | | (_| |
+   \_/    \___| |_| |_|  \__,_|`)
 )
 
-// importSuppliersCmd represents the importSuppliers command
+// Command Config
 var rootCmd = &cobra.Command{
-	Use:   "vendcli",
-	Short: "A CLI tool for Vend",
-	Long: `
-Vend is a CLI tool to interact with the Vend API.
-Commands represent tools and flags are parameters for those tool to run.
+	Use: "vendcli",
+	Short: fmt.Sprintf(`
+%s`, logo)}
 
 There are two sets of flags, global flags and command flags. Global flags such as 
 Domain Prefix and Token are required on all commands and then command flags 
