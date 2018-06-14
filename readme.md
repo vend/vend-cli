@@ -9,11 +9,15 @@
 - Export Sales Ledger
 - Export Customers
 - Export Gift Cards
+- Export Store Credits
+- Export Suppliers
+- Export Audit Log
 - Export Images
 - Import Images
 - Import Store Credits
 - Import Suppliers
 - Void Gift Cards
+- 
 
 ## Usage Examples
 
@@ -38,6 +42,10 @@ When running a command you need to pass the flags that specify the parameters fo
 #### Export Suppliers
 
 	$ vendcli export-suppliers -d domainprefix -t token	
+
+#### Export Audit Log
+
+	$ vendcli audit-log -d domainprefix -t token -F 2018-03-01T16:30:30 -T 2018-04-01T18:30:00	
 
 #### Export Images
 
