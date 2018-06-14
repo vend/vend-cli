@@ -62,7 +62,7 @@ func getAllSales() {
 
 	_, err = time.Parse(layout, dateTo)
 	if err != nil {
-		fmt.Printf("incorrect date from: %v, %v", dateTo, err)
+		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
 		os.Exit(1)
 	}
 
