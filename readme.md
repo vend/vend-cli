@@ -17,7 +17,6 @@
 - Import Store Credits
 - Import Suppliers
 - Void Gift Cards
-- 
 
 ## Usage Examples
 
