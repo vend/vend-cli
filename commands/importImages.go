@@ -55,7 +55,8 @@ func importImages(FilePath string) {
 	fmt.Println("Reading products from CSV file...")
 	productsFromCSV, err := ReadImageCSV(FilePath)
 	if err != nil {
-		fmt.Printf("Error reading CSV file")
+		log.Fatalf("Error reading CSV file")
+
 	}
 
 	// Get all products from Vend.
@@ -168,7 +169,8 @@ func ReadImageCSV(productFilePath string) ([]vend.ProductUpload, error) {
 	// Check each string in the header row is same as our template.
 	for i, row := range headerRow {
 		if stringutil.Strip(strings.ToLower(row)) != header[i] {
-			return []vend.ProductUpload{}, err
+			fmt.Println("Mismatched CSV headers, expecting {sku, handle, image_url}")
+			return []vend.ProductUpload{}, fmt.Errorf("Mistmatched Headers %v", err)
 		}
 	}
 

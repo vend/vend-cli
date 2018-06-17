@@ -44,14 +44,12 @@ func getAuditLog() {
 	layout := "2006-01-02T15:04:05"
 	_, err := time.Parse(layout, dateFrom)
 	if err != nil {
-		fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
-		os.Exit(1)
+		log.Fatalf("incorrect date from: %v, %v", dateFrom, err)
 	}
 
 	_, err = time.Parse(layout, dateTo)
 	if err != nil {
-		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
-		os.Exit(1)
+		log.Fatalf("incorrect date to: %v, %v", dateTo, err)
 	}
 
 	// Get log
@@ -59,7 +57,6 @@ func getAuditLog() {
 	audit, err := vc.AuditLog(dateFrom, dateTo)
 	if err != nil {
 		log.Fatalf("failed retrieving audit log from Vend %v", err)
-
 	}
 
 	// Write log to CSV
