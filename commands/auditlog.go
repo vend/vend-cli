@@ -15,7 +15,7 @@ import (
 // auditlogCmd represents the auditlog command
 var auditlogCmd = &cobra.Command{
 	Use:   "audit-log",
-	Short: "Audit Log",
+	Short: "Export Audit Log",
 	Long: fmt.Sprintf(`
 Example:
 %s`, color.GreenString("vendcli audit-log -d DOMAINPREFIX -t TOKEN -F 2018-03-01T16:30:30 -T 2018-04-01T18:30:00")),
@@ -27,8 +27,8 @@ Example:
 
 func init() {
 	// Flags
-	auditlogCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DD)")
-	auditlogCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DD)")
+	auditlogCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DDT00:00:00)")
+	auditlogCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DDT00:00:00)")
 	auditlogCmd.MarkFlagRequired("DateFrom")
 	auditlogCmd.MarkFlagRequired("DateTo")
 
