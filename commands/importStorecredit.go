@@ -61,7 +61,7 @@ func importStoreCredit() {
 // Read passed CSV, returns a slice of Store Credits
 func readStoreCreditCSV(filePath string) ([]vend.StoreCreditTransaction, error) {
 
-	headers := []string{"customer_code", "amount", "user_id", "note"}
+	headers := []string{"customer_code", "amount", "note"}
 
 	// Open our provided CSV file
 	file, err := os.Open(filePath)
@@ -105,8 +105,7 @@ func readStoreCreditCSV(filePath string) ([]vend.StoreCreditTransaction, error) 
 			CustomerCode: row[0],
 			Amount:       amount,
 			Type:         "ISSUE",
-			UserID:       &row[2],
-			Notes:        &row[3],
+			Notes:        &row[2],
 		}
 
 		// Append Store Credit info
