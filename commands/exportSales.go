@@ -67,7 +67,7 @@ func getAllSales() {
 	}
 
 	// Pull data from Vend
-	fmt.Println("Retrieving data from Vend...")
+	fmt.Println("\nRetrieving data from Vend...")
 
 	// Get registers
 	registers, err := vc.Registers()
@@ -110,7 +110,8 @@ func getAllSales() {
 	// Write sale to CSV.
 	fmt.Println("Writing Sales to CSV file...")
 	file = writeReport(file, registers, users, customers, products, sales, vc.DomainPrefix, vc.TimeZone)
-	fmt.Printf("Exported %v sales", len(sales))
+
+	fmt.Printf(color.GreenString("\nExported %v sales\n\n", len(sales)))
 }
 
 // createReport creates a template CSV file with headers ready to be written to.

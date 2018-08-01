@@ -43,7 +43,7 @@ func importStoreCredit() {
 	vendClient = &vc
 
 	// Read Store Credits from CSV file
-	fmt.Println("Reading Store Credits CSV...")
+	fmt.Println("\nReading Store Credits CSV...")
 	storeCredits, err := readStoreCreditCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Couldnt read Store Credits CSV file,  %s", err)
@@ -54,8 +54,8 @@ func importStoreCredit() {
 	for _, sc := range storeCredits {
 		err = postStoreCredit(sc)
 	}
-	fmt.Printf("\nFinished")
 
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 // Read passed CSV, returns a slice of Store Credits
