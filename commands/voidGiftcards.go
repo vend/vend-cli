@@ -41,7 +41,7 @@ func voidGiftCards() {
 	vendClient = &vc
 
 	// Get Gift Card Numbers from CSV
-	fmt.Printf("Reading Gift Card CSV\n")
+	fmt.Printf("\nReading Gift Card CSV\n")
 	ids, err := readGiftCardCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Failed to get gift card numbers from the file: %s", FilePath)
@@ -53,7 +53,7 @@ func voidGiftCards() {
 		err = requester(id)
 	}
 
-	fmt.Println("\nFinished!")
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 // Read passed CSV, returns a slice of Gift Cards

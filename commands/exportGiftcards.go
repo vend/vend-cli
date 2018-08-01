@@ -36,7 +36,7 @@ func getGiftCards() {
 	vc := vend.NewClient(Token, DomainPrefix, "")
 
 	// Get Gift Cards
-	fmt.Println("Retrieving Gift Cards from Vend...")
+	fmt.Println("\nRetrieving Gift Cards from Vend...")
 	giftCards, err := vc.GiftCards()
 	if err != nil {
 		log.Fatalf("Failed while retrieving Gift Cards: %v", err)
@@ -48,7 +48,8 @@ func getGiftCards() {
 	if err != nil {
 		log.Fatalf("Failed while writing Gift Cards to CSV: %v", err)
 	}
-	fmt.Printf("Exported %v Gift Cards", len(giftCards))
+
+	fmt.Printf(color.GreenString("\nExported %v Gift Cards\n\n", len(giftCards)))
 }
 
 // WriteFile writes Gift Cards to CSV

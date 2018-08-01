@@ -41,7 +41,7 @@ func importSuppliers() {
 	vendClient = &vc
 
 	// Read Suppliers from CSV file
-	fmt.Println("Reading Supplier CSV...")
+	fmt.Println("\nReading Supplier CSV...")
 	suppliers, err := readSupplierCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Couldnt read Supplier CSV file, %s", err)
@@ -52,6 +52,8 @@ func importSuppliers() {
 	if err != nil {
 		log.Fatalf("Failed to post Suppliers, %s", err)
 	}
+
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 // Read passed CSV, returns a slice of suppliers

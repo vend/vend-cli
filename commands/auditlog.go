@@ -53,7 +53,7 @@ func getAuditLog() {
 	}
 
 	// Get log
-	fmt.Println("Retrieving Audit Log from Vend...")
+	fmt.Println("\nRetrieving Audit Log from Vend...")
 	audit, err := vc.AuditLog(dateFrom, dateTo)
 	if err != nil {
 		log.Fatalf("failed retrieving audit log from Vend %v", err)
@@ -65,6 +65,8 @@ func getAuditLog() {
 	if err != nil {
 		log.Fatalf("failed writing audit log to CSV %v", err)
 	}
+
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 func aWriteFile(auditEvents []vend.AuditLog) error {

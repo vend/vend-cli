@@ -36,7 +36,7 @@ func getStoreCredits() {
 	vc := vend.NewClient(Token, DomainPrefix, "")
 
 	// Get Store Credits
-	fmt.Println("Retrieving Store Credits from Vend...")
+	fmt.Println("\nRetrieving Store Credits from Vend...")
 	storeCredits, err := vc.StoreCredits()
 	if err != nil {
 		log.Fatalf("Failed while retrieving store credits: %v", err)
@@ -48,7 +48,8 @@ func getStoreCredits() {
 	if err != nil {
 		log.Fatalf("Failed while writing Store Credits to CSV: %v", err)
 	}
-	fmt.Printf("Exported %v Store Credits", len(storeCredits))
+
+	fmt.Printf(color.GreenString("\nExported %v Store Credits\n\n", len(storeCredits)))
 }
 
 // WriteFile writes Store Credits to CSV

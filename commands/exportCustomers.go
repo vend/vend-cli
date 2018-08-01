@@ -36,7 +36,7 @@ func getAllCustomers() {
 	vc := vend.NewClient(Token, DomainPrefix, "")
 
 	// Get customers.
-	fmt.Println("Retrieving Customers from Vend...")
+	fmt.Println("\nRetrieving Customers from Vend...")
 	customers, err := vc.Customers()
 	if err != nil {
 		log.Fatalf("Failed retrieving customers from Vend %v", err)
@@ -48,7 +48,8 @@ func getAllCustomers() {
 	if err != nil {
 		log.Fatalf("Failed writing customers to CSV: %v", err)
 	}
-	fmt.Printf("Exported %v customers", len(customers))
+
+	fmt.Printf(color.GreenString("\nExported %v customers\n\n", len(customers)))
 }
 
 // WriteFile writes customer info to file.

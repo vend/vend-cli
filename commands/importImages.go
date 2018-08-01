@@ -52,7 +52,7 @@ func importImages(FilePath string) {
 	vendClient = &vc
 
 	// Read provided CSV file and store product info.
-	fmt.Println("Reading products from CSV file...")
+	fmt.Println("\nReading products from CSV file...")
 	productsFromCSV, err := ReadImageCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Error reading CSV file")
@@ -83,8 +83,7 @@ func importImages(FilePath string) {
 		UploadImage(imagePath, product)
 	}
 
-	// Log completition
-	fmt.Println("FINISHED")
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 func matchVendProduct(productsFromVend map[string]vend.Product, productsFromCSV []vend.ProductUpload) []vend.ProductUpload {
