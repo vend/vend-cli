@@ -49,7 +49,7 @@ func getGiftCards() {
 		log.Fatalf("Failed while writing Gift Cards to CSV: %v", err)
 	}
 
-	fmt.Printf(color.GreenString("\nExported %v Gift Cards\n\n", len(giftCards)))
+	fmt.Println(color.GreenString("\nExported %v Gift Cards\n", len(giftCards)))
 }
 
 // WriteFile writes Gift Cards to CSV

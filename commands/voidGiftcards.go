@@ -48,7 +48,7 @@ func voidGiftCards() {
 	}
 
 	// Voiding Gift Cards
-	fmt.Printf("%d Gift Card to Void.\n \n", len(ids))
+	fmt.Printf("%d Gift Card to Void.\n", len(ids))
 	for _, id := range ids {
 		err = requester(id)
 	}

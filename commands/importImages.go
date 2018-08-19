@@ -129,7 +129,7 @@ Match:
 
 	// Check how many matches we got.
 	if len(products) > 0 {
-		fmt.Printf("Matched %v Product out of %v\n", len(products), len(productsFromCSV))
+		fmt.Printf(color.GreenString("Matched %v Product out of %v\n", len(products), len(productsFromCSV)))
 	} else {
 		fmt.Println("No product matches")
 		return nil
@@ -383,7 +383,7 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 		response := vend.ImageUpload{}
 		err = json.Unmarshal(resBody, &response)
 		if err != nil {
-			fmt.Printf("Error downloading image, please check the image URL")
+			fmt.Printf("Error downloading image - please check the image URL")
 			os.Exit(1)
 			return err
 		}
