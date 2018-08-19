@@ -49,7 +49,7 @@ func getAllCustomers() {
 		log.Fatalf("Failed writing customers to CSV: %v", err)
 	}
 
-	fmt.Printf(color.GreenString("\nExported %v customers\n\n", len(customers)))
+	fmt.Println(color.GreenString("\nExported %v customers\n", len(customers)))
 }
 
 // WriteFile writes customer info to file.

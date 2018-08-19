@@ -49,7 +49,7 @@ func getStoreCredits() {
 		log.Fatalf("Failed while writing Store Credits to CSV: %v", err)
 	}
 
-	fmt.Printf(color.GreenString("\nExported %v Store Credits\n\n", len(storeCredits)))
+	fmt.Println(color.GreenString("\nExported %v Store Credits\n", len(storeCredits)))
 }
 
 // WriteFile writes Store Credits to CSV
