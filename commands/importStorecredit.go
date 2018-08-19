@@ -18,7 +18,7 @@ var importStorecreditCmd = &cobra.Command{
 	Use:   "import-storecredits",
 	Short: "Import Store Credits",
 	Long: fmt.Sprintf(`
-This tool requires the Store Credit CSV template, you can download it here: https://cl.ly/qnMJ
+This tool requires the Store Credit CSV template, you can download it here: https://cl.ly/0d1x3s1B2a0W
 
 Example:
 %s`, color.GreenString("vendcli import-storecredits -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
@@ -50,7 +50,7 @@ func importStoreCredit() {
 	}
 
 	// Post Store Credits to Vend
-	fmt.Printf("%d Store Credits to post.\n \n", len(storeCredits))
+	fmt.Printf("%v Store Credits to post.\n", len(storeCredits))
 	for _, sc := range storeCredits {
 		err = postStoreCredit(sc)
 	}
@@ -167,7 +167,7 @@ func postTransaction(trans vend.StoreCreditTransaction) error {
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/store_credits/%s/transactions", DomainPrefix, *trans.CustomerID)
 
 	// Make the Request
-	err, _ := vendClient.MakeRequest("POST", url, trans)
+	_, err := vendClient.MakeRequest("POST", url, trans)
 	if err != nil {
 		return fmt.Errorf("failed to post store credit transaction: %s", err)
 	}
