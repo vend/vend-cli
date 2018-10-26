@@ -146,7 +146,7 @@ func postSuppliers(suppliers []vend.SupplierBase) error {
 		url := fmt.Sprintf("https://%s.vendhq.com/api/supplier", DomainPrefix)
 
 		// Make the request to Vend
-		res, err := vendClient.MakeRequest("POST", url, supplier)
+		res, _, err := vendClient.MakeRequest("POST", url, supplier)
 		if err != nil {
 			return fmt.Errorf("Something went wrong trying to post supplier: %s, %s", err, string(res))
 		}

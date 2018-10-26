@@ -383,14 +383,14 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 		response := vend.ImageUpload{}
 		err = json.Unmarshal(resBody, &response)
 		if err != nil {
-			fmt.Printf("Error downloading image - please check the image URL")
+			fmt.Println("error sourcing image - please check the image URL. Image links must be a direct link to the image.")
 			os.Exit(1)
 			return err
 		}
 
 		payload := response.Data
 
-		fmt.Printf("image created at Position: %v\n\n", *payload.Position)
+		fmt.Printf(color.GreenString("image created at Position: %v\n\n", *payload.Position))
 
 	}
 	return err
