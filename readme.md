@@ -6,6 +6,9 @@
 
 ## Commands
 
+- Delete Customers
+- Delete Products
+- Export Audit Log
 - Export Sales Ledger
 - Export Customers
 - Export Gift Cards
@@ -17,10 +20,23 @@
 - Import Store Credits
 - Import Suppliers
 - Void Gift Cards
+- Void Sales
 
 ## Usage Examples
 
 When running a command you need to pass the flags that specify the parameters for that tool. There are two sets of flags, global flags and command flags. Global flags such as domain prefix and token are required on all commands and command flags are passed depending on the tool.
+
+#### Delete Customers
+
+	$ vendcli delete-customers -d domainprefix -t token -f filename.csv
+
+#### Delete Products
+
+	$ vendcli delete-products -d domainprefix -t token -f filename.csv
+
+#### Export Audit Log
+
+	$ vendcli audit-log -d domainprefix -t token -F 2018-03-15T16:30:30 -T 2018-04-01T18:30:00
 
 #### Export Sales Ledger
 
@@ -65,6 +81,10 @@ When running a command you need to pass the flags that specify the parameters fo
 #### Void Gift Cards
 
 	$ vendcli void-giftcards -d domainprefix -t token -f filename.csv
+
+#### Void Sales
+
+	$ vendcli void-sales -d domainprefix -t token -f filename.csv
 
 ## Need Help?
 

@@ -142,7 +142,7 @@ func getCustomerID(customerCode string) (string, error) {
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/search?type=customers&customer_code=%s", DomainPrefix, customerCode)
 
 	// Make the Request
-	res, err := vendClient.MakeRequest("GET", url, nil)
+	res, _, err := vendClient.MakeRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -167,7 +167,7 @@ func postTransaction(trans vend.StoreCreditTransaction) error {
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/store_credits/%s/transactions", DomainPrefix, *trans.CustomerID)
 
 	// Make the Request
-	_, err := vendClient.MakeRequest("POST", url, trans)
+	_, _, err := vendClient.MakeRequest("POST", url, trans)
 	if err != nil {
 		return fmt.Errorf("failed to post store credit transaction: %s", err)
 	}

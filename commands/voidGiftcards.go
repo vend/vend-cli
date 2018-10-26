@@ -109,7 +109,7 @@ func requester(id string) error {
 	// Create the Vend URL to delete Gift Card
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/balances/gift_cards/%s", DomainPrefix, id)
 
-	err, _ := vendClient.MakeRequest("DELETE", url, nil)
+	err, _, _ := vendClient.MakeRequest("DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to void Gift Card: %s", err)
 	}

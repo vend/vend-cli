@@ -69,6 +69,13 @@ func getAllSales() {
 	// Pull data from Vend
 	fmt.Println("\nRetrieving data from Vend...")
 
+	// Get Sale data.
+	sales, err := vc.SalesSearch(dateFrom, dateTo, outlet)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		return
+	}
+
 	// Get registers
 	registers, err := vc.Registers()
 	if err != nil {
@@ -91,13 +98,6 @@ func getAllSales() {
 	products, _, err := vc.Products()
 	if err != nil {
 		log.Fatalf("Failed to get products: %v", err)
-	}
-
-	// Get Sale data.
-	sales, err := vc.SalesSearch(dateFrom, dateTo, outlet)
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return
 	}
 
 	// Create template report to be written to.
