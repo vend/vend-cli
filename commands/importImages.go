@@ -52,7 +52,7 @@ func importImages(FilePath string) {
 	vendClient = &vc
 
 	// Read provided CSV file and store product info.
-	fmt.Println("Reading products from CSV file...")
+	fmt.Println("\nReading products from CSV file...")
 	productsFromCSV, err := ReadImageCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Error reading CSV file")
@@ -83,8 +83,7 @@ func importImages(FilePath string) {
 		UploadImage(imagePath, product)
 	}
 
-	// Log completition
-	fmt.Println("FINISHED")
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 func matchVendProduct(productsFromVend map[string]vend.Product, productsFromCSV []vend.ProductUpload) []vend.ProductUpload {
@@ -130,7 +129,7 @@ Match:
 
 	// Check how many matches we got.
 	if len(products) > 0 {
-		fmt.Printf("Matched %v Product out of %v\n", len(products), len(productsFromCSV))
+		fmt.Printf(color.GreenString("Matched %v Product out of %v\n", len(products), len(productsFromCSV)))
 	} else {
 		fmt.Println("No product matches")
 		return nil
@@ -384,14 +383,14 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 		response := vend.ImageUpload{}
 		err = json.Unmarshal(resBody, &response)
 		if err != nil {
-			fmt.Printf("Error downloading image, please check the image URL")
+			fmt.Println("error sourcing image - please check the image URL. Image links must be a direct link to the image.")
 			os.Exit(1)
 			return err
 		}
 
 		payload := response.Data
 
-		fmt.Printf("image created at Position: %v\n\n", *payload.Position)
+		fmt.Printf(color.GreenString("image created at Position: %v\n\n", *payload.Position))
 
 	}
 	return err

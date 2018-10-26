@@ -67,7 +67,14 @@ func getAllSales() {
 	}
 
 	// Pull data from Vend
-	fmt.Println("Retrieving data from Vend...")
+	fmt.Println("\nRetrieving data from Vend...")
+
+	// Get Sale data.
+	sales, err := vc.SalesSearch(dateFrom, dateTo, outlet)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		return
+	}
 
 	// Get registers
 	registers, err := vc.Registers()
@@ -93,13 +100,6 @@ func getAllSales() {
 		log.Fatalf("Failed to get products: %v", err)
 	}
 
-	// Get Sale data.
-	sales, err := vc.SalesSearch(dateFrom, dateTo, outlet)
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return
-	}
-
 	// Create template report to be written to.
 	file, err := createReport(vc.DomainPrefix)
 	if err != nil {
@@ -110,7 +110,8 @@ func getAllSales() {
 	// Write sale to CSV.
 	fmt.Println("Writing Sales to CSV file...")
 	file = writeReport(file, registers, users, customers, products, sales, vc.DomainPrefix, vc.TimeZone)
-	fmt.Printf("Exported %v sales", len(sales))
+
+	fmt.Printf(color.GreenString("\nExported %v sales\n\n", len(sales)))
 }
 
 // createReport creates a template CSV file with headers ready to be written to.

@@ -14,11 +14,11 @@ import (
 
 // auditlogCmd represents the auditlog command
 var auditlogCmd = &cobra.Command{
-	Use:   "audit-log",
+	Use:   "export-auditlog",
 	Short: "Export Audit Log",
 	Long: fmt.Sprintf(`
 Example:
-%s`, color.GreenString("vendcli audit-log -d DOMAINPREFIX -t TOKEN -F 2018-03-01T16:30:30 -T 2018-04-01T18:30:00")),
+%s`, color.GreenString("vendcli audit-log -d DOMAINPREFIX -t TOKEN -F 2018-03-15T16:30:30 -T 2018-04-01T18:30:00")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		getAuditLog()
@@ -53,7 +53,7 @@ func getAuditLog() {
 	}
 
 	// Get log
-	fmt.Println("Retrieving Audit Log from Vend...")
+	fmt.Println("\nRetrieving Audit Log from Vend...")
 	audit, err := vc.AuditLog(dateFrom, dateTo)
 	if err != nil {
 		log.Fatalf("failed retrieving audit log from Vend %v", err)
@@ -65,9 +65,11 @@ func getAuditLog() {
 	if err != nil {
 		log.Fatalf("failed writing audit log to CSV %v", err)
 	}
+
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
-func aWriteFile(audit []vend.AuditLog) error {
+func aWriteFile(auditEvents []vend.AuditLog) error {
 
 	// Create a blank CSV file
 	filename := fmt.Sprintf("%s_audit_log_%v.csv", DomainPrefix, time.Now().Unix())
@@ -92,36 +94,36 @@ func aWriteFile(audit []vend.AuditLog) error {
 
 	writer.Write(header)
 
-	for _, audits := range audit {
+	for _, auditEvent := range auditEvents {
 
 		var id, userID, kind, action, entityID, IPAddress, userAgent, occurredAt, createdAt string
 
-		if audits.ID != nil {
-			id = *audits.ID
+		if auditEvent.ID != nil {
+			id = *auditEvent.ID
 		}
-		if audits.UserID != nil {
-			userID = *audits.UserID
+		if auditEvent.UserID != nil {
+			userID = *auditEvent.UserID
 		}
-		if audits.Kind != nil {
-			kind = *audits.Kind
+		if auditEvent.Kind != nil {
+			kind = *auditEvent.Kind
 		}
-		if audits.Action != nil {
-			action = *audits.Action
+		if auditEvent.Action != nil {
+			action = *auditEvent.Action
 		}
-		if audits.EntityID != nil {
-			entityID = *audits.EntityID
+		if auditEvent.EntityID != nil {
+			entityID = *auditEvent.EntityID
 		}
-		if audits.IPAddress != nil {
-			IPAddress = *audits.IPAddress
+		if auditEvent.IPAddress != nil {
+			IPAddress = *auditEvent.IPAddress
 		}
-		if audits.UserAgent != nil {
-			userAgent = *audits.UserAgent
+		if auditEvent.UserAgent != nil {
+			userAgent = *auditEvent.UserAgent
 		}
-		if audits.OccurredAt != nil {
-			occurredAt = *audits.OccurredAt
+		if auditEvent.OccurredAt != nil {
+			occurredAt = *auditEvent.OccurredAt
 		}
-		if audits.CreatedAt != nil {
-			createdAt = *audits.CreatedAt
+		if auditEvent.CreatedAt != nil {
+			createdAt = *auditEvent.CreatedAt
 		}
 
 		var record []string

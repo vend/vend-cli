@@ -37,7 +37,7 @@ func getAllImages() {
 	vc := vend.NewClient(Token, DomainPrefix, "")
 
 	// Get Images.
-	fmt.Println("Retrieving Images from Vend...")
+	fmt.Println("\nRetrieving Images from Vend...")
 	images, _, err := vc.Products()
 	if err != nil {
 		log.Fatalf("Failed while retrieving images: %v", err)
@@ -50,7 +50,7 @@ func getAllImages() {
 		log.Fatalf("Failed while writing images to CSV: %v", err)
 	}
 
-	fmt.Println("Finished!")
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 // WriteFile writes image URLs info to file.
