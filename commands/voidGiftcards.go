@@ -41,19 +41,19 @@ func voidGiftCards() {
 	vendClient = &vc
 
 	// Get Gift Card Numbers from CSV
-	fmt.Printf("Reading Gift Card CSV\n")
+	fmt.Printf("\nReading Gift Card CSV\n")
 	ids, err := readGiftCardCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Failed to get gift card numbers from the file: %s", FilePath)
 	}
 
 	// Voiding Gift Cards
-	fmt.Printf("%d Gift Card to Void.\n \n", len(ids))
+	fmt.Printf("%d Gift Card to Void.\n", len(ids))
 	for _, id := range ids {
 		err = requester(id)
 	}
 
-	fmt.Println("\nFinished!")
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 // Read passed CSV, returns a slice of Gift Cards
@@ -109,7 +109,7 @@ func requester(id string) error {
 	// Create the Vend URL to delete Gift Card
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/balances/gift_cards/%s", DomainPrefix, id)
 
-	err, _ := vendClient.MakeRequest("DELETE", url, nil)
+	err, _, _ := vendClient.MakeRequest("DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to void Gift Card: %s", err)
 	}

@@ -35,7 +35,7 @@ func getAllSuppliers() {
 	vc := vend.NewClient(Token, DomainPrefix, "")
 
 	// Get Suppliers.
-	fmt.Println("Retrieving Suppliers from Vend...")
+	fmt.Println("\nRetrieving Suppliers from Vend...")
 	suppliers, err := vc.Suppliers()
 	if err != nil {
 		log.Fatalf("Failed while retrieving Suppliers: %v", err)
@@ -48,7 +48,7 @@ func getAllSuppliers() {
 		log.Fatalf("Failed while writing Suppliers to CSV: %v", err)
 	}
 
-	fmt.Println("Finished!")
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 // WriteFile writes suppliers info to file.

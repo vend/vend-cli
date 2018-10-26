@@ -18,7 +18,7 @@ var importStorecreditCmd = &cobra.Command{
 	Use:   "import-storecredits",
 	Short: "Import Store Credits",
 	Long: fmt.Sprintf(`
-This tool requires the Store Credit CSV template, you can download it here: https://cl.ly/qnMJ
+This tool requires the Store Credit CSV template, you can download it here: https://cl.ly/0d1x3s1B2a0W
 
 Example:
 %s`, color.GreenString("vendcli import-storecredits -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
@@ -43,25 +43,25 @@ func importStoreCredit() {
 	vendClient = &vc
 
 	// Read Store Credits from CSV file
-	fmt.Println("Reading Store Credits CSV...")
+	fmt.Println("\nReading Store Credits CSV...")
 	storeCredits, err := readStoreCreditCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Couldnt read Store Credits CSV file,  %s", err)
 	}
 
 	// Post Store Credits to Vend
-	fmt.Printf("%d Store Credits to post.\n \n", len(storeCredits))
+	fmt.Printf("%v Store Credits to post.\n", len(storeCredits))
 	for _, sc := range storeCredits {
 		err = postStoreCredit(sc)
 	}
-	fmt.Printf("\nFinished")
 
+	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 // Read passed CSV, returns a slice of Store Credits
 func readStoreCreditCSV(filePath string) ([]vend.StoreCreditTransaction, error) {
 
-	headers := []string{"customer_code", "amount", "user_id", "note"}
+	headers := []string{"customer_code", "amount", "note"}
 
 	// Open our provided CSV file
 	file, err := os.Open(filePath)
@@ -105,8 +105,7 @@ func readStoreCreditCSV(filePath string) ([]vend.StoreCreditTransaction, error) 
 			CustomerCode: row[0],
 			Amount:       amount,
 			Type:         "ISSUE",
-			UserID:       &row[2],
-			Notes:        &row[3],
+			Notes:        &row[2],
 		}
 
 		// Append Store Credit info
@@ -143,7 +142,7 @@ func getCustomerID(customerCode string) (string, error) {
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/search?type=customers&customer_code=%s", DomainPrefix, customerCode)
 
 	// Make the Request
-	res, err := vendClient.MakeRequest("GET", url, nil)
+	res, _, err := vendClient.MakeRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -168,7 +167,7 @@ func postTransaction(trans vend.StoreCreditTransaction) error {
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/store_credits/%s/transactions", DomainPrefix, *trans.CustomerID)
 
 	// Make the Request
-	err, _ := vendClient.MakeRequest("POST", url, trans)
+	_, _, err := vendClient.MakeRequest("POST", url, trans)
 	if err != nil {
 		return fmt.Errorf("failed to post store credit transaction: %s", err)
 	}
