@@ -27,7 +27,7 @@ var (
 		Short: "Export Sales",
 		Long: fmt.Sprintf(`
 Example:
-%s`, color.GreenString("vendcli export-sales -d DOMAINPREFIX -t TOKEN -z Pacific/Auckland -F 2018-03-01 -T 2018-04-01 -o 'OUTLETNAME'")),
+%s`, color.GreenString("vendcli export-sales -d DOMAINPREFIX -t TOKEN -z Pacific/Auckland")),
 
 		Run: func(cmd *cobra.Command, args []string) {
 			getAllSales()
@@ -38,12 +38,12 @@ Example:
 func init() {
 	// Flags
 	exportSalesCmd.Flags().StringVarP(&timeZone, "Timezone", "z", "", "Timezone of the store in zoneinfo format.")
-	exportSalesCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DD)")
-	exportSalesCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DD)")
-	exportSalesCmd.Flags().StringVarP(&outlet, "Outlet", "o", "", "Outlet to export the sales from")
-	exportSalesCmd.MarkFlagRequired("Timezone")
-	exportSalesCmd.MarkFlagRequired("DateFrom")
-	exportSalesCmd.MarkFlagRequired("DateTo")
+	// exportSalesCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DD)")
+	// exportSalesCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DD)")
+	// exportSalesCmd.Flags().StringVarP(&outlet, "Outlet", "o", "", "Outlet to export the sales from")
+	// exportSalesCmd.MarkFlagRequired("Timezone")
+	// exportSalesCmd.MarkFlagRequired("DateFrom")
+	// exportSalesCmd.MarkFlagRequired("DateTo")
 
 	rootCmd.AddCommand(exportSalesCmd)
 }
@@ -52,25 +52,25 @@ func getAllSales() {
 	// Create a new Vend Client
 	vc := vend.NewClient(Token, DomainPrefix, timeZone)
 
-	// Parse date input for errors. Sample: 2017-11-20
-	layout := "2006-01-02"
-	_, err := time.Parse(layout, dateFrom)
-	if err != nil {
-		fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
-		os.Exit(1)
-	}
+	// // Parse date input for errors. Sample: 2017-11-20
+	// layout := "2006-01-02"
+	// _, err := time.Parse(layout, dateFrom)
+	// if err != nil {
+	// 	fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
+	// 	os.Exit(1)
+	// }
 
-	_, err = time.Parse(layout, dateTo)
-	if err != nil {
-		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
-		os.Exit(1)
-	}
+	// _, err = time.Parse(layout, dateTo)
+	// if err != nil {
+	// 	fmt.Printf("incorrect date to: %v, %v", dateTo, err)
+	// 	os.Exit(1)
+	// }
 
 	// Pull data from Vend
 	fmt.Println("\nRetrieving data from Vend...")
 
 	// Get Sale data.
-	sales, err := vc.SalesSearch(dateFrom, dateTo, outlet)
+	sales, err := vc.Sales()
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
