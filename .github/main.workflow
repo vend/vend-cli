@@ -1,6 +1,6 @@
-workflow "Build, Test, and Publish" {
-  on = "push"
-  resolves = ["Publish Release"]
+workflow "Build and Test" {
+  on = "pull_request"
+  resolves = ["Build"]
 }
 
 action "Fmt" {
@@ -27,9 +27,12 @@ action "Build" {
   args = "GOOS=darwin GOARCH=amd64 go build"
 }
 
+workflow "Publish" {
+  on = "push"
+  resolves = ["Publish Release"]
+}
 # Filter for master branch
 action "Master" {
-  needs = "Build"
   uses = "actions/bin/filter@master"
   args = "branch master"
 }
