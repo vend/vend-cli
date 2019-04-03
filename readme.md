@@ -17,7 +17,6 @@
 - Export Audit Log
 - Export Images
 - Import Images
-- Import Store Credits
 - Import Suppliers
 - Void Gift Cards
 - Void Sales
@@ -40,7 +39,7 @@ When running a command you need to pass the flags that specify the parameters fo
 
 #### Export Sales Ledger
 
-	$ vendcli export-sales -d domainprefix -t token -z timezone -F 2018-03-01 -T 2018-04-01 -o outletname
+	$ vendcli export-sales -d domainprefix -t token -z timezone
 
 #### Export Customers
 
@@ -69,10 +68,6 @@ When running a command you need to pass the flags that specify the parameters fo
 #### Import Images
 
 	$ vendcli import-images -d domainprefix -t token -f filename.csv
-
-#### Import Store Credits
-
-	$ vendcli import-storecredits -d domainprefix -t token -f filename.csv
 
 #### Import Suppliers
 
