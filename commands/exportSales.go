@@ -67,9 +67,9 @@ func getAllSales() {
 	}
 
  	// prevent further processing by checking provided timezone to be valid
-	providedTz, err := getUtcTime(dateTo, timeZone)
+	_, err = getUtcTime(dateTo, timeZone)
 	if err != nil {
-		fmt.Printf("%v",err)
+		fmt.Printf("%v\n",err)
 		os.Exit(1)
 	}
 
@@ -212,7 +212,7 @@ func getTime(t string) time.Time {
 func getUtcTime(localdt string, tz string) (string, error) {
 	LOCAL, err := time.LoadLocation(tz)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		return "", err
 	}
 
