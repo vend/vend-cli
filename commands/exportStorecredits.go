@@ -42,6 +42,13 @@ func getStoreCredits() {
 		log.Fatalf("Failed while retrieving store credits: %v", err)
 	}
 
+	// // Find Customer ID from Customer Code
+	// customerCode, err := getCustomerCode(storeCredits.CustomerID)
+	// if err != nil {
+	// 	log.Fatalf("Failed trying to find customer code", err)
+	// }
+	// storeCredits.CustomerCode = &customerCode
+
 	// Write Store Credits to CSV
 	fmt.Println("Writing Store Credits to CSV file...")
 	err = scWriterFile(storeCredits)
@@ -54,13 +61,6 @@ func getStoreCredits() {
 
 // WriteFile writes Store Credits to CSV
 func scWriterFile(sc []vend.StoreCredit) error {
-
-	// Find Customer ID from Customer Code
-	//	customerCode, err := getCustomerCode(sc.CustomerID)
-	//	if err != nil {
-	//		return fmt.Errorf("failed to get customer ID: %v", err)
-	//	}
-	//	sc.CustomerCode = &customerCode
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_storecredit_export_%v.csv", DomainPrefix, time.Now().Unix())
@@ -79,7 +79,7 @@ func scWriterFile(sc []vend.StoreCredit) error {
 	var header []string
 	header = append(header, "id")
 	header = append(header, "customer_id")
-	header = append(header, "customer_code")
+	// header = append(header, "customer_code")
 	header = append(header, "created_at")
 	header = append(header, "balance")
 	header = append(header, "total_issued")
@@ -91,7 +91,7 @@ func scWriterFile(sc []vend.StoreCredit) error {
 	// Now loop through each gift card object and populate the CSV.
 	for _, storeCredits := range sc {
 
-		var ID, customerID, customerCode, createdAt, balance, totalIssued, totalRedeemed string
+		var ID, customerID, createdAt, balance, totalIssued, totalRedeemed string
 
 		if storeCredits.ID != nil {
 			ID = *storeCredits.ID
@@ -99,9 +99,9 @@ func scWriterFile(sc []vend.StoreCredit) error {
 		if storeCredits.CustomerID != nil {
 			customerID = *storeCredits.CustomerID
 		}
-		if storeCredits.CustomerCode != nil {
-			customerCode = *storeCredits.CustomerCode
-		}
+		// if storeCredits.CustomerCode != nil {
+		// 	customerCode = *storeCredits.CustomerCode
+		// }
 		if storeCredits.CreatedAt != nil {
 			createdAt = *storeCredits.CreatedAt
 		}
@@ -118,7 +118,7 @@ func scWriterFile(sc []vend.StoreCredit) error {
 		var record []string
 		record = append(record, ID)
 		record = append(record, customerID)
-		record = append(record, customerCode)
+		// record = append(record, customerCode)
 		record = append(record, createdAt)
 		record = append(record, balance)
 		record = append(record, totalIssued)
@@ -130,11 +130,11 @@ func scWriterFile(sc []vend.StoreCredit) error {
 	return err
 }
 
-// func getCustomerCode() (string, error) {
+// func getCustomerCode(id string) (string, error) {
 
-// 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/customers/%v", DomainPrefix, &s.CustomerID)
+// 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/customers/%v", DomainPrefix, id)
 
-// 	res, err := vendClient.MakeRequest("GET", url, nil)
+// 	res, _, err := vendClient.MakeRequest("GET", url, nil)
 // 	if err != nil {
 // 		return "", err
 // 	}
@@ -147,8 +147,8 @@ func scWriterFile(sc []vend.StoreCredit) error {
 // 	}
 
 // 	if len(c.Data) == 0 {
-// 		return "", fmt.Errorf("no customers found for the supplied customer code")
+// 		return "", fmt.Errorf("no customers found for the supplied customer ID")
 // 	}
 
-// 	return *c.Data[0].ID, nil
+// 	return *c.Data[0].Code, nil
 // }
