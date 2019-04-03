@@ -4,11 +4,11 @@ workflow "Build and Test" {
 }
 
 action "Fmt" {
-  uses = "leosunmo/go-github-actions/lint@6_fmt_ignore_dirs"
+  uses = "leosunmo/go-github-actions/fmt@6_fmt_ignore_dirs"
   secrets = ["GITHUB_TOKEN"]
   env = {
     GO_WORKING_DIR = "./"
-    GO_IGNORE_DIRS = "./vendor"
+    GO_IGNORE_DIRS = "./vendor/*"
   }
 }
 
