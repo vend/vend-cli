@@ -12,5 +12,7 @@ LABEL "maintainer"="Steve Kaliski <sjkaliski@gmail.com>"
 RUN apt-get update
 RUN apt-get install -y jq
 
-ADD entrypoint.sh /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+CMD echo "hello"
+
+#ADD entrypoint.sh /entrypoint.sh
+#ENTRYPOINT ["/entrypoint.sh"]
