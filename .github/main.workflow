@@ -4,7 +4,7 @@ workflow "Build and Test" {
 }
 
 action "Fmt" {
-  uses = "leosunmo/go-github-actions/fmt@6_fmt_ignore_dirs"
+  uses = "./go-fmt/"
   secrets = ["GITHUB_TOKEN"]
   env = {
     GO_WORKING_DIR = "./"
