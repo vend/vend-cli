@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+echo "====================="
+echo "starting fmt check..."
+echo "====================="
+
 cd "${GO_WORKING_DIR:-.}"
 
 # Build ignored directories
