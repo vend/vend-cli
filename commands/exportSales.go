@@ -38,12 +38,12 @@ Example:
 func init() {
 	// Flags
 	exportSalesCmd.Flags().StringVarP(&timeZone, "Timezone", "z", "", "Timezone of the store in zoneinfo format.")
-	// exportSalesCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DD)")
-	// exportSalesCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DD)")
-	// exportSalesCmd.Flags().StringVarP(&outlet, "Outlet", "o", "", "Outlet to export the sales from")
-	// exportSalesCmd.MarkFlagRequired("Timezone")
-	// exportSalesCmd.MarkFlagRequired("DateFrom")
-	// exportSalesCmd.MarkFlagRequired("DateTo")
+	exportSalesCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DD)")
+	exportSalesCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DD)")
+	exportSalesCmd.Flags().StringVarP(&outlet, "Outlet", "o", "", "Outlet to export the sales from")
+	exportSalesCmd.MarkFlagRequired("Timezone")
+	exportSalesCmd.MarkFlagRequired("DateFrom")
+	exportSalesCmd.MarkFlagRequired("DateTo")
 
 	rootCmd.AddCommand(exportSalesCmd)
 }
@@ -52,22 +52,44 @@ func getAllSales() {
 	// Create a new Vend Client
 	vc := vend.NewClient(Token, DomainPrefix, timeZone)
 
-	// // Parse date input for errors. Sample: 2017-11-20
-	// layout := "2006-01-02"
-	// _, err := time.Parse(layout, dateFrom)
-	// if err != nil {
-	// 	fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
-	// 	os.Exit(1)
-	// }
+	// Parse date input for errors. Sample: 2017-11-20
+	layout := "2006-01-02"
+	_, err := time.Parse(layout, dateFrom)
+	if err != nil {
+		fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
+		os.Exit(1)
+	}
 
-	// _, err = time.Parse(layout, dateTo)
-	// if err != nil {
-	// 	fmt.Printf("incorrect date to: %v, %v", dateTo, err)
-	// 	os.Exit(1)
-	// }
+	_, err = time.Parse(layout, dateTo)
+	if err != nil {
+		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
+		os.Exit(1)
+	}
+
+ 	// prevent further processing by checking provided timezone to be valid
+	providedTz, err := getUtcTime(dateTo, timeZone)
+	if err != nil {
+		fmt.Printf("%v",err)
+		os.Exit(1)
+	}
 
 	// Pull data from Vend
 	fmt.Println("\nRetrieving data from Vend...")
+
+	// Get outlets first to check provided outlet first before expensive sales pull
+	outlets, _, err := vc.Outlets()
+	if err != nil {
+		log.Fatalf("Failed to get outlets: %v", err)
+	}
+
+	// lookup outlet name by id
+	oidToOutletName := getOidToOutletName(outlets)
+
+	// prevent unnecessary processing to retrieve if providing wrong outlet name
+	if !validOutlet(outlet, oidToOutletName) {
+		fmt.Printf(color.RedString("\n'%s' does not exist in '%s'\n\n", outlet, DomainPrefix))
+		return
+	}
 
 	// Get Sale data.
 	sales, err := vc.Sales()
@@ -100,6 +122,14 @@ func getAllSales() {
 		log.Fatalf("Failed to get products: %v", err)
 	}
 
+	// Filter the sales by date range and outlet
+	utcDateFrom, _ := getUtcTime(dateFrom + "T00:00:00Z", vc.TimeZone)
+	utcDateTo, _ := getUtcTime(dateTo + "T23:59:59Z", vc.TimeZone)
+
+	fmt.Println("\nFiltering sales by outlet and date range...\n")
+	//filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, outlets, outlet)
+	filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
+
 	// Create template report to be written to.
 	file, err := createReport(vc.DomainPrefix)
 	if err != nil {
@@ -109,9 +139,94 @@ func getAllSales() {
 
 	// Write sale to CSV.
 	fmt.Println("Writing Sales to CSV file...")
-	file = writeReport(file, registers, users, customers, products, sales, vc.DomainPrefix, vc.TimeZone)
+	// file = writeReport(file, registers, users, customers, products, sales, vc.DomainPrefix, vc.TimeZone)
+	file = writeReport(file, registers, users, customers, products, filteredSales, vc.DomainPrefix, vc.TimeZone)
 
-	fmt.Printf(color.GreenString("\nExported %v sales\n\n", len(sales)))
+	fmt.Printf(color.GreenString("\nExported %v sales\n\n", len(filteredSales)))
+}
+
+// check if outlet name exists in store
+func validOutlet(outletName string, oidToName map[string]string) bool {
+	for oid := range oidToName {
+		currName := oidToName[oid]
+
+		if strings.ToLower(currName) == strings.ToLower(outletName) {
+			return true
+		}
+	}
+	return false
+}
+
+// return filtered sales based on provided outlet and utc datetime range
+func getFilteredSales(sales []vend.Sale, utcdatefrom string, utcdateto string,
+											oidToOutletName map[string]string, outlet string) []vend.Sale {
+	var filteredSales []vend.Sale
+	//oidToOutletName := getOidToOutletName(outlets)
+
+	for _, sale := range sales {
+		outletId := *sale.OutletID
+		//outletName := oidToOutlet[outletId][0] // seems like the .Oultets returns a map outletid : []Outlet?
+		outletName := oidToOutletName[outletId]
+
+		// avoid any surprises with casing
+		if strings.ToLower(outlet) != strings.ToLower(outletName) {
+			continue
+		}
+
+		//.After and .Before does not seem inclusive
+		dtFrom := getTime(utcdatefrom).Add(-1 * time.Second)
+		dtTo := getTime(utcdateto).Add(1 * time.Second)
+    saleDate := getTime((*sale.SaleDate)[:19] + "Z")
+
+		if saleDate.After(dtFrom) && saleDate.Before(dtTo){
+			filteredSales = append(filteredSales, sale)
+		}
+
+	}
+
+	return filteredSales
+}
+
+//return map[oid] string {outlet name}
+func getOidToOutletName(outlets []vend.Outlet) map[string]string {
+	oidToName := make(map[string]string)
+
+	for _, o := range outlets {
+		name := *o.Name
+		id := *o.ID
+
+		oidToName[id] = name
+	}
+
+	return oidToName
+}
+
+//get time object of given dt string
+func getTime(t string) time.Time {
+  format := "2006-01-02T15:04:05Z"
+	timeObj, _ := time.Parse(format, t)
+  return timeObj
+}
+
+// convert local time to utc
+func getUtcTime(localdt string, tz string) (string, error) {
+	LOCAL, err := time.LoadLocation(tz)
+	if err != nil {
+		fmt.Println(err)
+		return "", err
+	}
+
+	const longForm = "2006-01-02T15:04:05Z"
+	t, err := time.ParseInLocation(longForm, localdt, LOCAL)
+
+  if err != nil {
+    fmt.Println(err)
+    return "Could not parse time.", err
+  }
+
+  utc := t.UTC()
+
+	return utc.Format(longForm), err
 }
 
 // createReport creates a template CSV file with headers ready to be written to.
