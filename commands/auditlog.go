@@ -13,7 +13,7 @@ import (
 )
 
 // auditlogCmd represents the auditlog command
-    var auditlogCmd = &cobra.Command{
+var auditlogCmd = &cobra.Command{
 	Use:   "export-auditlog",
 	Short: "Export Audit Log",
 	Long: fmt.Sprintf(`
