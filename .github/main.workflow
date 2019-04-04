@@ -18,7 +18,7 @@ action "Lint" {
   needs = "Fmt"
   env = {
     GO_WORKING_DIR = "./"
-    GO_LINT_PATHS = "./templates/... ./commands/... ./"
+    GO_LINT_PATHS = "./commands/... ./"
   }
 }
 
