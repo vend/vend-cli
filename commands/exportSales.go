@@ -67,7 +67,7 @@ func getAllSales() {
 	}
 
  	// prevent further processing by checking provided timezone to be valid
-	_, err = getUtcTime(dateTo, timeZone)
+	_, err = getUtcTime(dateTo + "T00:00:00Z", timeZone)
 	if err != nil {
 		fmt.Printf("%v\n",err)
 		os.Exit(1)
