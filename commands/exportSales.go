@@ -145,7 +145,7 @@ func getAllSales() {
 		sortBySaleDate(filteredSales)
 
 		// Create template report to be written to.
-		file, err := createReport(vc.DomainPrefix)
+		file, err := createReport(vc.DomainPrefix, outlet)
 		if err != nil {
 			log.Fatalf("Failed creating template CSV: %v", err)
 		}
@@ -286,10 +286,10 @@ func getUtcTime(localdt string, tz string) (string, error) {
 }
 
 // createReport creates a template CSV file with headers ready to be written to.
-func createReport(domainPrefix string) (*os.File, error) {
+func createReport(domainPrefix string, outlet string) (*os.File, error) {
 
 	// Create blank CSV file to be written to.
-	fileName := fmt.Sprintf("%s_sales_history_%v.csv", DomainPrefix, time.Now().Unix())
+	fileName := fmt.Sprintf("%s_%s_sales_history_%v.csv", DomainPrefix, outlet, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
 		log.Fatalf("Error creating CSV file: %s", err)
