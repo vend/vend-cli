@@ -92,8 +92,15 @@ func getAllSales() {
 		return
 	}
 
+	// Filter the sales by date range and outlet
+	utcDateFrom, _ := getUtcTime(dateFrom+"T00:00:00Z", vc.TimeZone)
+	utcDateTo, _ := getUtcTime(dateTo+"T23:59:59Z", vc.TimeZone)
+
+	versionAfter, _ := vc.GetStartVersion(getTime(utcDateFrom), utcDateFrom)
+
 	// Get Sale data.
-	sales, err := vc.Sales()
+	//sales, err := vc.Sales()
+	sales, err := vc.SalesAfter(versionAfter)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
@@ -123,20 +130,18 @@ func getAllSales() {
 		log.Fatalf("Failed to get products: %v", err)
 	}
 
-	// Filter the sales by date range and outlet
-	utcDateFrom, _ := getUtcTime(dateFrom+"T00:00:00Z", vc.TimeZone)
-	utcDateTo, _ := getUtcTime(dateTo+"T23:59:59Z", vc.TimeZone)
-
 	fmt.Println("\nFiltering sales by outlet and date range...\n")
 
 	var allOutletsName []string
 
+	// add the provided outlet by default
 	allOutletsName = append(allOutletsName, outlet)
 
 	if outlet == "all" {
 		allOutletsName = getAllOutletNames(oidToOutletName)
 	}
 
+	// go through outlets to filter by date range and write to CSV
 	for _, outlet := range allOutletsName {
 		//filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, outlets, outlet)
 		filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
