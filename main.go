@@ -1,6 +1,6 @@
 package main
 
-import "github.com/jackharrisonsherlock/vendcli/commands"
+import cmd "github.com/vend/vend-cli/commands"
 
 func main() {
 	cmd.Execute()
