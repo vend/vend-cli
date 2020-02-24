@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -38,12 +39,12 @@ Example:
 func init() {
 	// Flags
 	exportSalesCmd.Flags().StringVarP(&timeZone, "Timezone", "z", "", "Timezone of the store in zoneinfo format.")
-	// exportSalesCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DD)")
-	// exportSalesCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DD)")
-	// exportSalesCmd.Flags().StringVarP(&outlet, "Outlet", "o", "", "Outlet to export the sales from")
-	// exportSalesCmd.MarkFlagRequired("Timezone")
-	// exportSalesCmd.MarkFlagRequired("DateFrom")
-	// exportSalesCmd.MarkFlagRequired("DateTo")
+	exportSalesCmd.Flags().StringVarP(&dateFrom, "DateFrom", "F", "", "Date from (YYYY-MM-DD)")
+	exportSalesCmd.Flags().StringVarP(&dateTo, "DateTo", "T", "", "Date to (YYYY-MM-DD)")
+	exportSalesCmd.Flags().StringVarP(&outlet, "Outlet", "o", "", "Outlet to export the sales from")
+	exportSalesCmd.MarkFlagRequired("Timezone")
+	exportSalesCmd.MarkFlagRequired("DateFrom")
+	exportSalesCmd.MarkFlagRequired("DateTo")
 
 	rootCmd.AddCommand(exportSalesCmd)
 }
@@ -52,25 +53,54 @@ func getAllSales() {
 	// Create a new Vend Client
 	vc := vend.NewClient(Token, DomainPrefix, timeZone)
 
-	// // Parse date input for errors. Sample: 2017-11-20
-	// layout := "2006-01-02"
-	// _, err := time.Parse(layout, dateFrom)
-	// if err != nil {
-	// 	fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
-	// 	os.Exit(1)
-	// }
+	// Parse date input for errors. Sample: 2017-11-20
+	layout := "2006-01-02"
+	_, err := time.Parse(layout, dateFrom)
+	if err != nil {
+		fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
+		os.Exit(1)
+	}
 
-	// _, err = time.Parse(layout, dateTo)
-	// if err != nil {
-	// 	fmt.Printf("incorrect date to: %v, %v", dateTo, err)
-	// 	os.Exit(1)
-	// }
+	_, err = time.Parse(layout, dateTo)
+	if err != nil {
+		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
+		os.Exit(1)
+	}
+
+	// prevent further processing by checking provided timezone to be valid
+	_, err = getUtcTime(dateTo+"T00:00:00Z", timeZone)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
 
 	// Pull data from Vend
 	fmt.Println("\nRetrieving data from Vend...")
 
+	// Get outlets first to check provided outlet first before expensive sales pull
+	outlets, _, err := vc.Outlets()
+	if err != nil {
+		log.Fatalf("Failed to get outlets: %v", err)
+	}
+
+	// lookup outlet name by id
+	oidToOutletName := getOidToOutletName(outlets)
+
+	// prevent unnecessary processing to retrieve if providing wrong outlet name
+	if outlet != "all" && !validOutlet(outlet, oidToOutletName) {
+		fmt.Printf(color.RedString("\n'%s' does not exist in '%s'\n\n", outlet, DomainPrefix))
+		return
+	}
+
+	// Filter the sales by date range and outlet
+	utcDateFrom, _ := getUtcTime(dateFrom+"T00:00:00Z", vc.TimeZone)
+	utcDateTo, _ := getUtcTime(dateTo+"T23:59:59Z", vc.TimeZone)
+
+	versionAfter, _ := vc.GetStartVersion(getTime(utcDateFrom), utcDateFrom)
+
 	// Get Sale data.
-	sales, err := vc.Sales()
+	//sales, err := vc.Sales()
+	sales, err := vc.SalesAfter(versionAfter)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
@@ -100,25 +130,171 @@ func getAllSales() {
 		log.Fatalf("Failed to get products: %v", err)
 	}
 
-	// Create template report to be written to.
-	file, err := createReport(vc.DomainPrefix)
-	if err != nil {
-		log.Fatalf("Failed creating template CSV: %v", err)
+	fmt.Println("\nFiltering sales by outlet and date range...\n")
+
+	var allOutletsName []string
+
+	// add the provided outlet by default
+	allOutletsName = append(allOutletsName, outlet)
+
+	if outlet == "all" {
+		allOutletsName = getAllOutletNames(oidToOutletName)
 	}
-	defer file.Close()
 
-	// Write sale to CSV.
-	fmt.Println("Writing Sales to CSV file...")
-	file = writeReport(file, registers, users, customers, products, sales, vc.DomainPrefix, vc.TimeZone)
+	// go through outlets to filter by date range and write to CSV
+	for _, outlet := range allOutletsName {
+		//filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, outlets, outlet)
+		filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
 
-	fmt.Printf(color.GreenString("\nExported %v sales\n\n", len(sales)))
+		//sort the sales asc by saledate since the pull may be out of order - version
+		sortBySaleDate(filteredSales)
+
+		// Create template report to be written to.
+		file, err := createReport(vc.DomainPrefix, outlet)
+		if err != nil {
+			log.Fatalf("Failed creating template CSV: %v", err)
+		}
+		defer file.Close()
+
+		// Write sale to CSV.
+		fmt.Printf("Writing Sales to CSV file - %s...\n", outlet)
+		// file = writeReport(file, registers, users, customers, products, sales, vc.DomainPrefix, vc.TimeZone)
+		file = writeReport(file, registers, users, customers, products, filteredSales, vc.DomainPrefix, vc.TimeZone)
+
+		fmt.Printf(color.GreenString("\nExported %v sales - %s\n\n", len(filteredSales), outlet))
+	}
+
+}
+
+// getAllOutletNames returns the slice of outlet names based on the provided
+// map[outletid] : outletName
+func getAllOutletNames(oidToOutletName map[string]string) []string {
+	var outletNames []string
+
+	for oid := range oidToOutletName {
+		currName := oidToOutletName[oid]
+
+		outletNames = append(outletNames, currName)
+	}
+
+	return outletNames
+}
+
+// sortBySaleDate sorts the provided sale slice by sale_date asc with built in sort
+// not sure exactly what algo is used but I know that the sales are already nearly sorted
+// insertion sort is usually better in that case
+func sortBySaleDate(sales []vend.Sale) {
+	sort.SliceStable(sales, func(i, j int) bool {
+		return getTime((*sales[i].SaleDate)[:19] + "Z").Before(getTime((*sales[j].SaleDate)[:19] + "Z"))
+	})
+}
+
+// insertionSortSaleDate sorts the provided sale slice by sale_date asc
+// since we know that the sales are usually sorted, insertion sort is probably best
+// for those cases where a sale is updated within the date range will place it based on version
+func insertionSortSaleDate(sales []vend.Sale) {
+	var j int
+	for i := 1; i < len(sales); i++ {
+		currSale := sales[i]
+		j = i - 1
+
+		for j >= 0 && getTime((*sales[j].SaleDate)[:19]+"Z").After(getTime((*currSale.SaleDate)[:19]+"Z")) {
+			sales[j+1] = sales[j]
+			j = j - 1
+		}
+		sales[j+1] = currSale
+	}
+}
+
+// validOutlet checks if outlet name exists in store
+func validOutlet(outletName string, oidToName map[string]string) bool {
+	for oid := range oidToName {
+		currName := oidToName[oid]
+
+		if strings.ToLower(currName) == strings.ToLower(outletName) {
+			return true
+		}
+	}
+	return false
+}
+
+// getFilteredSales returns the filtered sales based on provided outlet and utc datetime range
+func getFilteredSales(sales []vend.Sale, utcdatefrom string, utcdateto string,
+	oidToOutletName map[string]string, outlet string) []vend.Sale {
+	var filteredSales []vend.Sale
+	//oidToOutletName := getOidToOutletName(outlets)
+
+	for _, sale := range sales {
+		outletId := *sale.OutletID
+		//outletName := oidToOutlet[outletId][0] // seems like the .Oultets returns a map outletid : []Outlet?
+		outletName := oidToOutletName[outletId]
+
+		// avoid any surprises with casing
+		if strings.ToLower(outlet) != strings.ToLower(outletName) {
+			continue
+		}
+
+		//.After and .Before does not seem inclusive
+		dtFrom := getTime(utcdatefrom).Add(-1 * time.Second)
+		dtTo := getTime(utcdateto).Add(1 * time.Second)
+		saleDate := getTime((*sale.SaleDate)[:19] + "Z")
+
+		if saleDate.After(dtFrom) && saleDate.Before(dtTo) {
+			filteredSales = append(filteredSales, sale)
+		}
+
+	}
+
+	return filteredSales
+}
+
+// getOidToOutletName returns a map[oid] string {outlet name}
+func getOidToOutletName(outlets []vend.Outlet) map[string]string {
+	oidToName := make(map[string]string)
+
+	for _, o := range outlets {
+		name := *o.Name
+		id := *o.ID
+
+		oidToName[id] = name
+	}
+
+	return oidToName
+}
+
+// getTime returns a time object of given dt string
+func getTime(t string) time.Time {
+	format := "2006-01-02T15:04:05Z"
+	timeObj, _ := time.Parse(format, t)
+	return timeObj
+}
+
+// getUtcTime converts local time to utc
+func getUtcTime(localdt string, tz string) (string, error) {
+	LOCAL, err := time.LoadLocation(tz)
+	if err != nil {
+		//fmt.Println(err)
+		return "", err
+	}
+
+	const longForm = "2006-01-02T15:04:05Z"
+	t, err := time.ParseInLocation(longForm, localdt, LOCAL)
+
+	if err != nil {
+		fmt.Println(err)
+		return "Could not parse time.", err
+	}
+
+	utc := t.UTC()
+
+	return utc.Format(longForm), err
 }
 
 // createReport creates a template CSV file with headers ready to be written to.
-func createReport(domainPrefix string) (*os.File, error) {
+func createReport(domainPrefix string, outlet string) (*os.File, error) {
 
 	// Create blank CSV file to be written to.
-	fileName := fmt.Sprintf("%s_sales_history_%v.csv", DomainPrefix, time.Now().Unix())
+	fileName := fmt.Sprintf("%s_%s_sales_history_%v.csv", DomainPrefix, outlet, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
 		log.Fatalf("Error creating CSV file: %s", err)
