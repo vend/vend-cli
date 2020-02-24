@@ -1,138 +1,138 @@
 package cmd
 
-// import (
-// 	"encoding/csv"
-// 	"fmt"
-// 	"log"
-// 	"os"
-// 	"strconv"
+import (
+	"encoding/csv"
+	"fmt"
+	"log"
+	"os"
+	"strconv"
 
-// 	"github.com/fatih/color"
-// 	"github.com/jackharrisonsherlock/govend/vend"
-// 	"github.com/spf13/cobra"
-// )
+	"github.com/fatih/color"
+	"github.com/jackharrisonsherlock/govend/vend"
+	"github.com/spf13/cobra"
+)
 
-// // Command config
-// var importStorecreditCmd = &cobra.Command{
-// 	Use:   "import-storecredits",
-// 	Short: "Import Store Credits",
-// 	Long: fmt.Sprintf(`
-// This tool requires the Store Credit CSV template, you can download it here: https://cl.ly/0d1x3s1B2a0W
+// Command config
+var importStorecreditCmd = &cobra.Command{
+	Use:   "import-storecredits",
+	Short: "Import Store Credits",
+	Long: fmt.Sprintf(`
+This tool requires the Store Credit CSV template, you can download it here: http://bit.ly/vendclitemplates
 
-// Example:
-// %s`, color.GreenString("vendcli import-storecredits -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
+Example:
+%s`, color.GreenString("vendcli import-storecredits -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
 
-// 	Run: func(cmd *cobra.Command, args []string) {
-// 		importStoreCredit()
-// 	},
-// }
+	Run: func(cmd *cobra.Command, args []string) {
+		importStoreCredit()
+	},
+}
 
-// func init() {
-// 	// Flag
-// 	importStorecreditCmd.Flags().StringVarP(&FilePath, "Filename", "f", "", "The name of your file: filename.csv")
-// 	importStorecreditCmd.MarkFlagRequired("Filename")
+func init() {
+	// Flag
+	importStorecreditCmd.Flags().StringVarP(&FilePath, "Filename", "f", "", "The name of your file: filename.csv")
+	importStorecreditCmd.MarkFlagRequired("Filename")
 
-// 	rootCmd.AddCommand(importStorecreditCmd)
-// }
+	rootCmd.AddCommand(importStorecreditCmd)
+}
 
-// func importStoreCredit() {
+func importStoreCredit() {
 
-// 	// Create new Vend Client.
-// 	vc := vend.NewClient(Token, DomainPrefix, "")
-// 	vendClient = &vc
+	// Create new Vend Client.
+	vc := vend.NewClient(Token, DomainPrefix, "")
+	vendClient = &vc
 
-// 	// Read Store Credits from CSV file
-// 	fmt.Println("\nReading Store Credits CSV...")
-// 	storeCredits, err := readStoreCreditCSV(FilePath)
-// 	if err != nil {
-// 		log.Fatalf("Couldnt read Store Credits CSV file,  %s", err)
-// 	}
+	// Read Store Credits from CSV file
+	fmt.Println("\nReading Store Credits CSV...")
+	storeCredits, err := readStoreCreditCSV(FilePath)
+	if err != nil {
+		log.Fatalf("Couldnt read Store Credits CSV file,  %s", err)
+	}
 
-// 	// Post Store Credits to Vend
-// 	fmt.Printf("%v Store Credits to post.\n", len(storeCredits))
-// 	for _, sc := range storeCredits {
-// 		err = postStoreCredit(sc)
-// 	}
+	// Post Store Credits to Vend
+	fmt.Printf("%v Store Credits to post.\n", len(storeCredits))
+	for _, sc := range storeCredits {
+		err = postStoreCredit(sc)
+	}
 
-// 	fmt.Println(color.GreenString("\nFinished!\n"))
-// }
+	fmt.Println(color.GreenString("\nFinished!\n"))
+}
 
-// // Read passed CSV, returns a slice of Store Credits
-// func readStoreCreditCSV(filePath string) ([]vend.StoreCreditTransaction, error) {
+// Read passed CSV, returns a slice of Store Credits
+func readStoreCreditCSV(filePath string) ([]vend.StoreCreditTransaction, error) {
 
-// 	headers := []string{"customer_id", "amount", "note"}
+	headers := []string{"customer_id", "amount", "note"}
 
-// 	// Open our provided CSV file
-// 	file, err := os.Open(filePath)
-// 	if err != nil {
-// 		fmt.Println("Could not read from CSV file")
-// 		return nil, err
-// 	}
-// 	// Make sure to close at end
-// 	defer file.Close()
+	// Open our provided CSV file
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Println("Could not read from CSV file")
+		return nil, err
+	}
+	// Make sure to close at end
+	defer file.Close()
 
-// 	// Create CSV reader on our file
-// 	reader := csv.NewReader(file)
+	// Create CSV reader on our file
+	reader := csv.NewReader(file)
 
-// 	var storeCredits []vend.StoreCreditTransaction
+	var storeCredits []vend.StoreCreditTransaction
 
-// 	// Read and store our header line.
-// 	headerRow, err := reader.Read()
+	// Read and store our header line.
+	headerRow, err := reader.Read()
 
-// 	// Check each header in the row is same as our template.
-// 	for i := range headerRow {
-// 		if headerRow[i] != headers[i] {
-// 			fmt.Println("Found error in header rows.")
-// 			log.Fatalf("No header match for: %s Instead got: %s.",
-// 				string(headers[i]), string(headerRow[i]))
-// 		}
-// 	}
+	// Check each header in the row is same as our template.
+	for i := range headerRow {
+		if headerRow[i] != headers[i] {
+			fmt.Println("Found error in header rows.")
+			log.Fatalf("No header match for: %s Instead got: %s",
+				string(headers[i]), string(headerRow[i]))
+		}
+	}
 
-// 	// Read the rest of the data from the CSV
-// 	rawData, err := reader.ReadAll()
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	// Read the rest of the data from the CSV
+	rawData, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
 
-// 	// Loop through rows and assign them to the Store Credit type.
-// 	for _, row := range rawData {
-// 		amount, err := strconv.ParseFloat(row[1], 10)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		storeCredit := vend.StoreCreditTransaction{
-// 			CustomerID: row[0],
-// 			Amount:     amount,
-// 			Type:       "ISSUE",
-// 			Notes:      &row[2],
-// 		}
+	// Loop through rows and assign them to the Store Credit type.
+	for _, row := range rawData {
+		amount, err := strconv.ParseFloat(row[1], 10)
+		if err != nil {
+			return nil, err
+		}
+		storeCredit := vend.StoreCreditTransaction{
+			CustomerID: row[0],
+			Amount:     amount,
+			Type:       "ISSUE",
+			Notes:      &row[2],
+		}
 
-// 		// Append Store Credit info
-// 		storeCredits = append(storeCredits, storeCredit)
-// 	}
+		// Append Store Credit info
+		storeCredits = append(storeCredits, storeCredit)
+	}
 
-// 	return storeCredits, err
-// }
+	return storeCredits, err
+}
 
-// // Post each Store Credits to Vend
-// func postStoreCredit(storeCredit vend.StoreCreditTransaction) error {
+// Post each Store Credits to Vend
+func postStoreCredit(storeCredit vend.StoreCreditTransaction) error {
 
-// 	// // Find Customer ID from Customer Code
-// 	// customerID, err := getCustomerID(storeCredit.CustomerCode)
-// 	// if err != nil {
-// 	// 	return fmt.Errorf("failed to get customer ID: %v", err)
-// 	// }
-// 	// storeCredit.CustomerID = &customerID
+	// // Find Customer ID from Customer Code
+	// customerID, err := getCustomerID(storeCredit.CustomerCode)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get customer ID: %v", err)
+	// }
+	// storeCredit.CustomerID = customerID
 
-// 	// Posting Store Credits to Vend
-// 	fmt.Printf("Posting: %s / %v \n", storeCredit.CustomerID, storeCredit.Amount)
-// 	err := postTransaction(storeCredit)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to post store credit: %v", err)
-// 	}
+	// Posting Store Credits to Vend
+	fmt.Printf("Posting: %s / %v \n", storeCredit.CustomerID, storeCredit.Amount)
+	err := postTransaction(storeCredit)
+	if err != nil {
+		return fmt.Errorf("failed to post store credit: %v", err)
+	}
 
-// 	return nil
-// }
+	return nil
+}
 
 // // Get CustomerID from Customer Code
 // func getCustomerID(customerCode string) (string, error) {
@@ -141,7 +141,7 @@ package cmd
 // 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/search?type=customers&customer_code=%s", DomainPrefix, customerCode)
 
 // 	// Make the Request
-// 	res, _, err := vendClient.MakeRequest("GET", url, nil)
+// 	res, err := vendClient.MakeRequest("GET", url, nil)
 // 	if err != nil {
 // 		return "", err
 // 	}
@@ -160,17 +160,16 @@ package cmd
 // 	return *c.Data[0].ID, nil
 // }
 
-// func postTransaction(trans vend.StoreCreditTransaction) error {
+func postTransaction(trans vend.StoreCreditTransaction) error {
 
-// 	// Create the Vend URL
-// 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/store_credits/%s/transactions", DomainPrefix, trans.CustomerID)
+	// Create the Vend URL
+	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/store_credits/%s/transactions", DomainPrefix, trans.CustomerID)
 
-// 	// Make the Request
-// 	_, _, err := vendClient.MakeRequest("POST", url, trans)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to post store credit transaction: %s", err)
-// 	}
+	// Make the Request
+	_, err := vendClient.MakeRequest("POST", url, trans)
+	if err != nil {
+		return fmt.Errorf("failed to post store credit transaction: %s", err)
+	}
 
-// 	return nil
-// }
-//
+	return nil
+}
