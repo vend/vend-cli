@@ -18,7 +18,7 @@ var auditlogCmd = &cobra.Command{
 	Short: "Export Audit Log",
 	Long: fmt.Sprintf(`
 Example:
-%s`, color.GreenString("vendcli audit-log -d DOMAINPREFIX -t TOKEN -F 2018-03-15T16:30:30 -T 2018-04-01T18:30:00")),
+%s`, color.GreenString("vendcli export-auditlog -d DOMAINPREFIX -t TOKEN -F 2018-03-15T16:30:30 -T 2018-04-01T18:30:00")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		getAuditLog()
