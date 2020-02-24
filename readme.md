@@ -18,6 +18,8 @@
 - Export Images
 - Import Images
 - Import Suppliers
+- Import Store Credits
+- Adjust Customer Loyalty
 - Void Gift Cards
 - Void Sales
 
