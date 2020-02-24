@@ -48,7 +48,7 @@ func deleteProducts() {
 	for _, id := range ids {
 		fmt.Printf("\nDeleting %v", id)
 		url := fmt.Sprintf("https://%s.vendhq.com/api/products/%s", DomainPrefix, id)
-		_, _, err = vendClient.MakeRequest("DELETE", url, nil)
+		_, err = vendClient.MakeRequest("DELETE", url, nil)
 		if err != nil {
 			fmt.Printf(" Failed to delete Products: %v", err)
 		}

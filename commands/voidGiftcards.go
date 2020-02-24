@@ -16,7 +16,7 @@ var voidGiftcardsCmd = &cobra.Command{
 	Use:   "void-giftcards",
 	Short: "Void Gift Cards",
 	Long: fmt.Sprintf(`
-This tool requires the Gift Card CSV template, you can download it here: https://cl.ly/qq9a,
+This tool requires the Gift Card CSV template, you can download it here: http://bit.ly/vendclitemplates,
 
 Example:
 %s`, color.GreenString("vendcli void-giftcards -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
@@ -109,7 +109,7 @@ func requester(id string) error {
 	// Create the Vend URL to delete Gift Card
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/balances/gift_cards/%s", DomainPrefix, id)
 
-	err, _, _ := vendClient.MakeRequest("DELETE", url, nil)
+	err, _ := vendClient.MakeRequest("DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to void Gift Card: %s", err)
 	}
