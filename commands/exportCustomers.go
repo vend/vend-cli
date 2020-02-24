@@ -87,6 +87,7 @@ func cWriteFile(customers []vend.Customer) error {
 	header = append(header, "fax")
 	header = append(header, "twitter")
 	header = append(header, "website")
+	header = append(header, "do_not_email")
 	header = append(header, "created_at")
 	header = append(header, "physical_address1")
 	header = append(header, "physical_address2")
@@ -113,8 +114,7 @@ func cWriteFile(customers []vend.Customer) error {
 	for _, customer := range customers {
 
 		var id, code, firstName, lastName, email, yearToDate, balance, loyaltyBalance, note, gender, dateOfBirth, companyName, phone, mobile, fax, twitter,
-			website, physicalSuburb, physicalCity, physicalPostcode, physicalState, postalSuburb, postalCity, postalState, createdAt, postalPostcode,
-			physicalAddress1, physicalAddress2, postalAddress1, postalAddress2, postalCountryID, customField1, customField2, customField3, customField4 string
+			website, doNotEmail, physicalSuburb, physicalCity, physicalPostcode, physicalState, postalSuburb, postalCity, postalState, createdAt, postalPostcode, physicalAddress1, physicalAddress2, postalAddress1, postalAddress2, postalCountryID, customField1, customField2, customField3, customField4 string
 
 		if customer.ID != nil {
 			id = *customer.ID
@@ -167,6 +167,9 @@ func cWriteFile(customers []vend.Customer) error {
 		if customer.Website != nil {
 			website = *customer.Website
 		}
+		// if customer.DoNotEmail != nil {
+		// 	doNotEmail = *customer.DoNotEmail
+		// }
 		if customer.PhysicalSuburb != nil {
 			physicalSuburb = *customer.PhysicalSuburb
 		}
@@ -240,6 +243,7 @@ func cWriteFile(customers []vend.Customer) error {
 		record = append(record, fax)
 		record = append(record, twitter)
 		record = append(record, website)
+		record = append(record, doNotEmail)
 		record = append(record, createdAt)
 		record = append(record, physicalAddress1)
 		record = append(record, physicalAddress2)
