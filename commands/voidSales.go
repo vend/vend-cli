@@ -39,7 +39,7 @@ func voidSales() {
 	vendClient = &vc
 
 	// Get passed entities from CSV
-	fmt.Println("\nReading CSV...\n")
+	fmt.Printf("\nReading CSV...\n")
 	ids, err := readCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Failed to get ids from the file: %s", FilePath)
@@ -59,7 +59,7 @@ func voidSales() {
 
 		// Make the requests
 		url := fmt.Sprintf("https://%s.vendhq.com/api/register_sales", DomainPrefix)
-		_, _, err = vendClient.MakeRequest("POST", url, sale)
+		_, err = vendClient.MakeRequest("POST", url, sale)
 		fmt.Printf(color.GreenString(" - VOIDED\n"))
 		if err != nil {
 			fmt.Printf("Error maing request: %v", err)
@@ -78,7 +78,7 @@ func getSale(id string) (vend.Sale, error) {
 	url := fmt.Sprintf("https://%s.vendhq.com/api/register_sales/%s", DomainPrefix, id)
 
 	// Make the request
-	res, _, err := vendClient.MakeRequest("GET", url, nil)
+	res, err := vendClient.MakeRequest("GET", url, nil)
 
 	// Unmarshal JSON Response
 	err = json.Unmarshal(res, &saleResponse)
