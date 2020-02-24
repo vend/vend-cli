@@ -16,7 +16,7 @@ var importSuppliersCmd = &cobra.Command{
 	Use:   "import-suppliers",
 	Short: "Import Suppliers",
 	Long: fmt.Sprintf(`
-This tool requires the Supplier CSV template, you can download it here: https://cl.ly/qoDF
+This tool requires the Supplier CSV template, you can download it here: http://bit.ly/vendclitemplates
 
 Example:
 %s`, color.GreenString("vendcli import-suppliers -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
@@ -146,7 +146,7 @@ func postSuppliers(suppliers []vend.SupplierBase) error {
 		url := fmt.Sprintf("https://%s.vendhq.com/api/supplier", DomainPrefix)
 
 		// Make the request to Vend
-		res, _, err := vendClient.MakeRequest("POST", url, supplier)
+		res, err := vendClient.MakeRequest("POST", url, supplier)
 		if err != nil {
 			return fmt.Errorf("Something went wrong trying to post supplier: %s, %s", err, string(res))
 		}
