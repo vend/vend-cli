@@ -134,7 +134,7 @@ func getAllSales() {
 		log.Fatalf("Failed to get products: %v", err)
 	}
 
-	fmt.Println("\nFiltering sales by outlet and date range...\n")
+	fmt.Printf("\nFiltering sales by outlet and date range...\n")
 
 	var allOutletsName []string
 
