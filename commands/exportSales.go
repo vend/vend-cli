@@ -27,8 +27,12 @@ var (
 		Use:   "export-sales",
 		Short: "Export Sales",
 		Long: fmt.Sprintf(`
+Exports all the Sales from an account broken down by outlet. 
+If you need to export a single outlet, specify the outlet name after -o like "-o 'Shop 2'"
+Otherwise use "-o all" to export everything. 
+
 Example:
-%s`, color.GreenString("vendcli export-sales -d DOMAINPREFIX -t TOKEN -z Pacific/Auckland")),
+%s`, color.GreenString("vendcli export-sales -d DOMAINPREFIX -t TOKEN -z TIMEZONE -f DATEFROM -t DATETO -o ALL")),
 
 		Run: func(cmd *cobra.Command, args []string) {
 			getAllSales()
@@ -88,7 +92,7 @@ func getAllSales() {
 
 	// prevent unnecessary processing to retrieve if providing wrong outlet name
 	if outlet != "all" && !validOutlet(outlet, oidToOutletName) {
-		fmt.Printf(color.RedString("\n'%s' does not exist in '%s'\n\n", outlet, DomainPrefix))
+		fmt.Printf(color.RedString("\n'%s' Outlet does not exist in '%s'\n\n", outlet, DomainPrefix))
 		return
 	}
 
@@ -130,7 +134,7 @@ func getAllSales() {
 		log.Fatalf("Failed to get products: %v", err)
 	}
 
-	fmt.Println("\nFiltering sales by outlet and date range...\n")
+	fmt.Printf("\nFiltering sales by outlet and date range...\n")
 
 	var allOutletsName []string
 
