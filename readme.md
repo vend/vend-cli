@@ -4,6 +4,13 @@
   <p align="center">A CLI tool to interact with the Vend API.<p></p>
 
 
+## Installation
+
+```
+$ brew tap jackharrisonsherlock/vendcli
+$ brew install vendcli
+```
+
 ## Commands
 
 - Delete Customers
