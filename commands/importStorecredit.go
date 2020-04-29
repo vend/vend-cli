@@ -134,32 +134,6 @@ func postStoreCredit(storeCredit vend.StoreCreditTransaction) error {
 	return nil
 }
 
-// // Get CustomerID from Customer Code
-// func getCustomerID(customerCode string) (string, error) {
-
-// 	// Build Search URL
-// 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/search?type=customers&customer_code=%s", DomainPrefix, customerCode)
-
-// 	// Make the Request
-// 	res, err := vendClient.MakeRequest("GET", url, nil)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	c := &vend.CustomerSearchResponse{}
-
-// 	err = json.Unmarshal(res, &c)
-// 	if err != nil {
-// 		fmt.Printf("Failed to Unmarshal JSON from Vend. Error: %v", err)
-// 	}
-
-// 	if len(c.Data) == 0 {
-// 		return "", fmt.Errorf("no customers found for the supplied customer code")
-// 	}
-
-// 	return *c.Data[0].ID, nil
-// }
-
 func postTransaction(trans vend.StoreCreditTransaction) error {
 
 	// Create the Vend URL
