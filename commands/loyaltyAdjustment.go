@@ -47,13 +47,7 @@ func loyaltyAdjustment() {
 		log.Fatalf("Couldnt read Loyalty Adjustment CSV file,  %s", err)
 	}
 
-	// // Post Loyalty Adjustments to Vend
-	// fmt.Printf("%v Loyalty Adjustments to post.\n", len(loyaltyAdjustments))
-	// for _, la := range loyaltyAdjustments {
-	// 	err = postLoyaltyAdjustment(la)
-	// }
-
-	// Posting Suppliers to Vend
+	// Posting Adjustments to Vend
 	fmt.Printf("%d Loyalty Adjustments to post.\n \n", len(loyaltyAdjustments))
 	for _, loyaltyAdjustment := range loyaltyAdjustments {
 		// Create the Vend URL
@@ -107,38 +101,16 @@ func readLoyaltyAdjustmentCSV(filePath string) ([]vend.Customer, error) {
 		return nil, err
 	}
 
-	// Loop through rows and assign them to the Store Credit type.
+	// Loop through rows and assign them to the Loyalty Adjustment type.
 	for _, row := range rawData {
 		loyaltyAdjustment := vend.Customer{
 			ID:                &row[0],
 			LoyaltyAdjustment: &row[1],
 		}
 
-		// Append Store Credit info
+		// Append Adjustments info
 		loyaltyAdjustments = append(loyaltyAdjustments, loyaltyAdjustment)
 	}
 
 	return loyaltyAdjustments, err
 }
-
-// Post each Supplier to Vend
-// func postLoyaltyAdjustment(loyaltyAdjustments []vend.Customer) error {
-// 	var err error
-
-// 	// Posting Suppliers to Vend
-// 	fmt.Printf("%d Loyalty Adjustments to post.\n \n", len(loyaltyAdjustments))
-// 	for _, loyaltyAdjustment := range loyaltyAdjustments {
-// 		// Create the Vend URL
-// 		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/customers/%s", DomainPrefix, loyaltyAdjustment.ID)
-
-// 		// Make the request to Vend
-// 		res, err := vendClient.MakeRequest("POST", url, loyaltyAdjustment)
-// 		if err != nil {
-// 			return fmt.Errorf("Something went wrong trying to post loyalty adjustments: %s, %s", err, string(res))
-// 		}
-
-// 	}
-// 	fmt.Printf("\nFinished! Succesfully adjusted %d Customer Loyalty Balances", len(loyaltyAdjustments))
-
-// 	return err
-// }
