@@ -42,7 +42,7 @@ func voidSales() {
 	fmt.Printf("\nReading CSV...\n")
 	ids, err := readCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Failed to get ids from the file: %s", FilePath)
+		log.Fatalf(color.RedString("Failed to get ids from the file: %s", FilePath))
 	}
 
 	// Get sale payload
