@@ -41,7 +41,7 @@ func deleteCustomers() {
 	fmt.Println("\nReading CSV...")
 	ids, err := readCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Failed to get IDs from the file: %s", FilePath)
+		log.Fatalf(color.RedString("Failed to get IDs from the file: %s", FilePath))
 	}
 
 	// Make the requests
@@ -50,8 +50,8 @@ func deleteCustomers() {
 		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/customers/%s", DomainPrefix, id)
 		_, err = vendClient.MakeRequest("DELETE", url, nil)
 		if err != nil {
-			fmt.Printf("Failed to delete customer: %v", err)
+			fmt.Printf(color.RedString("Failed to delete customer: %v", err))
 		}
 	}
-	fmt.Println(color.GreenString("\n\nFinished!\n"))
+	fmt.Println(color.GreenString("\n\nFinished! 🎉\n"))
 }

@@ -40,14 +40,14 @@ func getAllImages() {
 	fmt.Println("\nRetrieving Images from Vend...")
 	images, _, err := vc.Products()
 	if err != nil {
-		log.Fatalf("Failed while retrieving images: %v", err)
+		log.Fatalf(color.RedString("Failed while retrieving images: %v", err))
 	}
 
 	// Write to CSV
 	fmt.Println("Writing images to CSV file...")
 	err = iWriteFile(images)
 	if err != nil {
-		log.Fatalf("Failed while writing images to CSV: %v", err)
+		log.Fatalf(color.RedString("Failed while writing images to CSV: %v", err))
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))

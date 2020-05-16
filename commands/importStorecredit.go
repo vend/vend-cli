@@ -45,16 +45,16 @@ func importStoreCredit() {
 	fmt.Println("\nReading Store Credits CSV...")
 	storeCredits, err := readStoreCreditCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Couldnt read Store Credits CSV file,  %s", err)
+		log.Fatalf(color.RedString("Couldnt read Store Credits CSV file,  %s", err))
 	}
 
 	// Post Store Credits to Vend
-	fmt.Printf("%v Store Credits to post.\n", len(storeCredits))
+	fmt.Printf("%v Store Credits to post.\n\n", len(storeCredits))
 	for _, sc := range storeCredits {
 		err = postStoreCredit(sc)
 	}
 
-	fmt.Println(color.GreenString("\nFinished!\n"))
+	fmt.Println(color.GreenString("\nFinished! 🎉\n"))
 }
 
 // Read passed CSV, returns a slice of Store Credits
@@ -82,8 +82,8 @@ func readStoreCreditCSV(filePath string) ([]vend.StoreCreditTransaction, error) 
 	// Check each header in the row is same as our template.
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
-			fmt.Println("Found error in header rows.")
-			log.Fatalf("No header match for: %s Instead got: %s",
+			fmt.Println(color.RedString("Found error in header rows."))
+			log.Fatalf("\n\n 🛑 Looks like we have a mismatch in headers, this command needs three headers: customer_id, amount, note \n No header match for: %s instead got: %s \n\n",
 				string(headers[i]), string(headerRow[i]))
 		}
 	}
@@ -128,7 +128,7 @@ func postStoreCredit(storeCredit vend.StoreCreditTransaction) error {
 	fmt.Printf("Posting: %s / %v \n", storeCredit.CustomerID, storeCredit.Amount)
 	err := postTransaction(storeCredit)
 	if err != nil {
-		return fmt.Errorf("failed to post store credit: %v", err)
+		return fmt.Errorf(color.RedString("Failed to post store credit: %v", err))
 	}
 
 	return nil
@@ -168,7 +168,7 @@ func postTransaction(trans vend.StoreCreditTransaction) error {
 	// Make the Request
 	_, err := vendClient.MakeRequest("POST", url, trans)
 	if err != nil {
-		return fmt.Errorf("failed to post store credit transaction: %s", err)
+		return fmt.Errorf(color.RedString("Failed to post store credit transaction: %s", err))
 	}
 
 	return nil
