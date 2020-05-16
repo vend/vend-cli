@@ -46,10 +46,10 @@ func getAllCustomers() {
 	fmt.Println("Writing customers to CSV file...")
 	err = cWriteFile(customers)
 	if err != nil {
-		log.Fatalf("Failed writing customers to CSV: %v", err)
+		log.Fatalf(color.RedString("Failed writing customers to CSV: %v", err))
 	}
 
-	fmt.Println(color.GreenString("\nExported %v customers\n", len(customers)))
+	fmt.Println(color.GreenString("\nExported %v customers  🎉\n", len(customers)))
 }
 
 // WriteFile writes customer info to file.
@@ -116,6 +116,10 @@ func cWriteFile(customers []vend.Customer) error {
 		var id, code, firstName, lastName, email, yearToDate, balance, loyaltyBalance, note, gender, dateOfBirth, companyName, phone, mobile, fax, twitter,
 			website, doNotEmail, physicalSuburb, physicalCity, physicalPostcode, physicalState, postalSuburb, postalCity, postalState, createdAt, postalPostcode, physicalAddress1, physicalAddress2, postalAddress1, postalAddress2, postalCountryID, customField1, customField2, customField3, customField4 string
 
+		if *customer.Code == "Anonymous Customer" {
+			continue
+		}
+
 		if customer.ID != nil {
 			id = *customer.ID
 		}
@@ -167,9 +171,14 @@ func cWriteFile(customers []vend.Customer) error {
 		if customer.Website != nil {
 			website = *customer.Website
 		}
-		// if customer.DoNotEmail != nil {
-		// 	doNotEmail = *customer.DoNotEmail
-		// }
+		if customer.DoNotEmail != nil {
+			if *customer.DoNotEmail == false {
+				doNotEmail = "0"
+			} else if *customer.DoNotEmail == true {
+				doNotEmail = "1"
+			}
+		}
+
 		if customer.PhysicalSuburb != nil {
 			physicalSuburb = *customer.PhysicalSuburb
 		}
