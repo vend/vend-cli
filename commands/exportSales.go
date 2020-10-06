@@ -315,8 +315,9 @@ func createReport(domainPrefix string, outlet string) (*os.File, error) {
 	headerLine = append(headerLine, "Invoice Number")
 	headerLine = append(headerLine, "Line Type")
 	headerLine = append(headerLine, "Customer Code")
-	headerLine = append(headerLine, "Company Name")
 	headerLine = append(headerLine, "Customer Name")
+	headerLine = append(headerLine, "Customer Email")
+	headerLine = append(headerLine, "Do not email")
 	headerLine = append(headerLine, "Sale Note")
 	headerLine = append(headerLine, "Quantity")
 	headerLine = append(headerLine, "Price")
@@ -330,7 +331,6 @@ func createReport(domainPrefix string, outlet string) (*os.File, error) {
 	headerLine = append(headerLine, "User")
 	headerLine = append(headerLine, "Status")
 	headerLine = append(headerLine, "Product Sku")
-
 	// Write headerline to file.
 	writer.Write(headerLine)
 	writer.Flush()
@@ -374,8 +374,8 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 		}
 
 		// Customer
-		var customerName, customerFirstName, customerLastName, customerCompanyName,
-			customerCode string
+		var customerName, customerFirstName, customerLastName,
+			customerCode, customerEmail, doNotEmail string
 		var customerFullName []string
 		for _, customer := range customers {
 			// Make sure we only use info from customer on our sale.
@@ -391,8 +391,11 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 				if customer.Code != nil {
 					customerCode = *customer.Code
 				}
-				if customer.CompanyName != nil {
-					customerCompanyName = *customer.CompanyName
+				if customer.Email != nil {
+					customerEmail = *customer.Email
+				}
+				if customer.DoNotEmail != nil {
+					doNotEmail = fmt.Sprint(*customer.DoNotEmail)
 				}
 				customerName = strings.Join(customerFullName, " ")
 				break
@@ -477,8 +480,9 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 		record = append(record, invoiceNumber)       // Receipt Number
 		record = append(record, "Sale")              // Line Type
 		record = append(record, customerCode)        // Customer Code
-		record = append(record, customerCompanyName) // Customer Company Name
-		record = append(record, customerName)        // Customer Name
+		record = append(record, customerName) // Customer Name
+		record = append(record, customerEmail)        // Customer Email
+		record = append(record, doNotEmail)        // Marketing Opt in/out
 		record = append(record, saleNote)            // Note
 		record = append(record, totalQuantityStr)    // Quantity
 		record = append(record, totalPrice)          // Subtotal
@@ -520,7 +524,7 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 			productRecord[2] = ""           // Invoice Number
 			productRecord[3] = "Sale Line"  // Line Type
 			productRecord[4] = ""           // Customer Code
-			productRecord[5] = ""           // Customer Company Name
+			productRecord[5] = ""           // Customer Name
 			productRecord[6] = ""           // Customer Name
 			productRecord[7] = ""           // TODO: line note from the product?
 			productRecord[8] = quantity     // Quantity
@@ -552,7 +556,7 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 			paymentRecord[2] = ""        // Invoice Number
 			paymentRecord[3] = "Payment" // Line Type
 			paymentRecord[4] = ""        // Customer Code
-			paymentRecord[5] = ""        // Customer Company Name
+			paymentRecord[5] = ""        // Customer Name
 			paymentRecord[6] = ""        // Customer Name
 			paymentRecord[7] = ""        // TODO: line note
 			paymentRecord[8] = ""        // Quantity
