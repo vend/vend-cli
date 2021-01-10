@@ -1,3 +1,5 @@
+# github.com/davecgh/go-spew v1.1.1
+github.com/davecgh/go-spew/spew
 # github.com/fatih/color v1.10.0
 ## explicit
 github.com/fatih/color
@@ -32,6 +34,8 @@ github.com/mitchellh/go-homedir
 github.com/mitchellh/mapstructure
 # github.com/pelletier/go-toml v1.2.0
 github.com/pelletier/go-toml
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
 # github.com/sirupsen/logrus v1.7.0
 ## explicit
 github.com/sirupsen/logrus
@@ -50,6 +54,9 @@ github.com/spf13/pflag
 # github.com/spf13/viper v1.7.1
 ## explicit
 github.com/spf13/viper
+# github.com/stretchr/testify v1.3.0
+## explicit
+github.com/stretchr/testify/assert
 # github.com/subosito/gotenv v1.2.0
 github.com/subosito/gotenv
 # github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3

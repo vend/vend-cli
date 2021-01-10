@@ -1,14 +1,32 @@
 package cmd
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestExtractingProductCodes(t *testing.T) {
-	productCodes, err := readProductCodesCSV("./testdata/import_product_codes.csv")
-	if err != nil {
-		t.Error(err)
+	expectedCodes := []ProductCodeAdd{
+		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33102", "EAN", "45345"),
+		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33102", "ITF", "555"),
+		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33103", "ISBN", "3423"),
+		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33103", "UPC", "5354353"),
+		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33104", "JAN", "3442"),
 	}
 
-	if len(productCodes) < 1 {
-		t.Error("No codes")
+	productCodes, err := readProductCodesCSV("./testdata/import_product_codes.csv")
+	assert.NoError(t, err)
+	assert.Equal(t, expectedCodes, productCodes)
+}
+
+func toCodeAddAction(productID, codeType, code string) ProductCodeAdd {
+	return ProductCodeAdd{
+		Action:    AddCodeAction,
+		ProductID: productID,
+		Data: ProductCode{
+			Type: codeType,
+			Code: code,
+		},
 	}
 }
