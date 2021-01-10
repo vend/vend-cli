@@ -83,6 +83,13 @@ func readProductCodesCSV(filePath string) ([]ProductCodeAdd, error) {
 		return nil, err
 	}
 
+	// Ensure there are no duplicate product codes
+	err = validateProductCodeUniqueness(records)
+	if err != nil {
+		fmt.Println("Uniqueness validation failed: ", err.Error())
+		return nil, err
+	}
+
 	var prodCodes []ProductCodeAdd
 
 	for _, row := range records {
@@ -112,6 +119,25 @@ func validateHeader(header []string) error {
 	}
 	if header[0] != "product_id" {
 		return errors.New("missing product_id column")
+	}
+	return nil
+}
+
+func validateProductCodeUniqueness(records [][]string) error {
+	codes := make(map[string]interface{})
+	for _, row := range records {
+		// Start at column 1, column 0 is always product_id
+		for c := 1; c < len(row); c++ {
+			pCode := row[c]
+			if pCode == ""{
+				continue
+			}
+			if _, ok := codes[pCode]; ok {
+				return errors.New("duplicate code: " + pCode)
+			} else {
+				codes[pCode] = nil
+			}
+		}
 	}
 	return nil
 }

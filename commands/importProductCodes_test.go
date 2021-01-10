@@ -20,6 +20,12 @@ func TestExtractingProductCodes(t *testing.T) {
 	assert.Equal(t, expectedCodes, productCodes)
 }
 
+func TestProductCodesUniqueness(t *testing.T) {
+	_, err := readProductCodesCSV("./testdata/import_duplicate_product_codes.csv")
+	assert.Error(t, err)
+	assert.Equal(t, err.Error(), "duplicate code: 3442")
+}
+
 func toCodeAddAction(productID, codeType, code string) ProductCodeAdd {
 	return ProductCodeAdd{
 		Action:    AddCodeAction,
