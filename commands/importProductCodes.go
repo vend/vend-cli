@@ -13,8 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const AddCodeAction = "product.code.add"
+
 // ProductCodeAdd represents an intent to add a structured product code.
 type ProductCodeAdd struct {
+	Action    string      `json:"action"`
 	ProductID string      `json:"product_id"`
 	Data      ProductCode `json:"data"`
 }
@@ -90,6 +93,7 @@ func readProductCodesCSV(filePath string) ([]ProductCodeAdd, error) {
 			// Only add codes where a value was provided.
 			if pCode != "" {
 				prodCodes = append(prodCodes, ProductCodeAdd{
+					Action:    AddCodeAction,
 					ProductID: productId,
 					Data: ProductCode{
 						Type: header[c],
