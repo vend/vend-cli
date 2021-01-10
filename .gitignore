@@ -1,3 +1,15 @@
-.DS_Store
-.vscode
+# Ignore input files
 *.csv
+
+# Ignore the compiled binary
+/vend-cli
+/debug
+
+# IDE files
+*.iml
+.vscode/*
+.env
+.idea/
+
+# Environment files
+.DS_Store
