@@ -1,5 +1,5 @@
 # Ignore input files
-*.csv
+/*.csv
 
 # Ignore the compiled binary
 /vend-cli
