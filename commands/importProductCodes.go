@@ -163,6 +163,7 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 	fmt.Println("Begin processing product codes.")
 
 	for i := 0; i < len(productCodes); i += BatchSize {
+		batchNum := i + 1
 		j := i + BatchSize
 		if j > len(productCodes) {
 			j = len(productCodes)
@@ -174,20 +175,19 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 			return fmt.Errorf("something went wrong trying to post product code: %s, %s", err, response)
 		}
 
-		switch statusCode {
-		case http.StatusOK:
+		switch {
+		case statusCode < 300:
 			fmt.Printf("\nBatch complete! Succesfully created %d Product Codes", len(productCodes[i:j]))
-		case http.StatusUnprocessableEntity:
+		case statusCode == http.StatusUnprocessableEntity:
 			fmt.Println("Validation error: ", response)
-
-			failedProductCodes[i+1] = ProductCodeAddErrors{
+			failedProductCodes[batchNum] = ProductCodeAddErrors{
 				productCodes[i:j],
 				"Validation",
 				response,
 			}
 		default:
 			fmt.Println("Unknown error: ", response)
-			failedProductCodes[i+1] = ProductCodeAddErrors{
+			failedProductCodes[batchNum] = ProductCodeAddErrors{
 				productCodes[i:j],
 				"Unknown",
 				response,

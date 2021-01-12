@@ -35,7 +35,7 @@ func readRecords(csvBytes []byte) ([]string, [][]string, error) {
 	return header, records, nil
 }
 
-// writeCSV combines the headers and rows to create a csv file.
+// writeCSV combines headers and rows to create a csv file.
 func writeCSV(fileName string, headers []string, rows [][]string) error {
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
