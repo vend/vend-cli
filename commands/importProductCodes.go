@@ -203,8 +203,7 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 			fmt.Printf("\nUnsuccesssful! Failed to write ouput for %d Product Codes", len(failedProductCodes))
 			return err
 		}
-		numSuccessCodes := len(productCodes) - len(failedProductCodes)
-		fmt.Printf("\nFinished! Partially successful created %d Product Codes", numSuccessCodes)
+		fmt.Printf("\nFinished! Partially successful, %d batches failed", len(failedProductCodes))
 	} else {
 		fmt.Printf("\nFinished! Succesfully created %d Product Codes", len(productCodes))
 	}
