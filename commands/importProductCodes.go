@@ -1,19 +1,20 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/csv"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"net/http"
 
 	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
 )
 
-const AddCodeAction = "product.code.add"
+const (
+	AddCodeAction = "product.code.add"
+	BatchSize     = 99 // Bulk API limited to 100 actions per request
+)
 
 // ProductCodeAdd represents an intent to add a structured product code.
 type ProductCodeAdd struct {
@@ -71,7 +72,7 @@ func importProductCodes() {
 
 // Read passed CSV, returns a slice of product codes add instructions.
 func readProductCodesCSV(filePath string) ([]ProductCodeAdd, error) {
-	header, records, err := loadRecordsFromFile(filePath)
+	header, records, err := loadRecordsFromCSV(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func validateProductCodeUniqueness(records [][]string) error {
 		// Start at column 1, column 0 is always product_id
 		for c := 1; c < len(row); c++ {
 			pCode := row[c]
-			if pCode == ""{
+			if pCode == "" {
 				continue
 			}
 			if _, ok := codes[pCode]; ok {
@@ -142,47 +143,36 @@ func validateProductCodeUniqueness(records [][]string) error {
 	return nil
 }
 
-func loadRecordsFromFile(path string) ([]string, [][]string, error) {
-	raw, err := ioutil.ReadFile(path)
-	if err != nil {
-		fmt.Println("Could not read from CSV file")
-		return nil, nil, err
-	}
-	return readRecords(raw)
-}
-
-func readRecords(csvBytes []byte) ([]string, [][]string, error) {
-	reader := csv.NewReader(bytes.NewReader(csvBytes))
-	reader.FieldsPerRecord = -1
-	header, err := reader.Read()
-	if err != nil {
-		return nil, nil, err
-	}
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, nil, err
-	}
-	return header, records, nil
-}
-
 // Post product codes to Vend
 func postProductCodes(productCodes []ProductCodeAdd) error {
 	var err error
+	// Create the Vend URL
+	url := fmt.Sprintf("https://%s.vendhq.works/api/2.0/products/actions/bulk", DomainPrefix)
 
-	// Posting product codes to Vend
-	fmt.Printf("%d Product codes to post.\n \n", len(productCodes))
-	for _, code := range productCodes {
-		fmt.Printf("Posting: %v \n", code)
-		// Create the Vend URL
-		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/products/actions/bulk", DomainPrefix)
+	fmt.Println("Begin processing product codes.")
 
+	for i := 0; i < len(productCodes); i += BatchSize {
+		j := i + BatchSize
+		if j > len(productCodes) {
+			j = len(productCodes)
+		}
 		// Make the request to Vend
-		res, err := vendClient.MakeRequest("POST", url, code)
+		fmt.Printf("Posting: %v \n", productCodes[i:j])
+		statusCode, response, err := makeRequest("POST", url, productCodes[i:j])
 		if err != nil {
-			return fmt.Errorf("something went wrong trying to post product code: %s, %s", err, string(res))
+			return fmt.Errorf("something went wrong trying to post product code: %s, %s", err, response)
 		}
 
+		switch statusCode {
+		case http.StatusOK:
+			fmt.Printf("\nBatch complete! Succesfully created %d Product Codes", len(productCodes[i:j]))
+		case http.StatusUnprocessableEntity:
+			fmt.Println("Validation error: ", response)
+		default:
+			fmt.Println("Unknown error: ", response)
+		}
 	}
+
 	fmt.Printf("\nFinished! Succesfully created %d Product Codes", len(productCodes))
 
 	return err
