@@ -158,8 +158,7 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 
 	failedProductCodes := map[int]ProductCodeAddErrors{}
 	// Create the Vend URL
-	//TODO: Change .works to .com
-	url := fmt.Sprintf("https://%s.vendhq.works/api/2.0/products/actions/bulk", DomainPrefix)
+	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/products/actions/bulk", DomainPrefix)
 
 	fmt.Println("Begin processing product codes.")
 
@@ -214,7 +213,7 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 // writeOutput writes outcome of product code creation to csv
 func writeOutput(failedCodes map[int]ProductCodeAddErrors) error {
 	headers := []string{"product_id", "type", "code", "batch_number", "reason", "message"}
-	rows := make([][]string, 0, len(failedCodes))
+	var rows [][]string
 
 	for batchNum, failures := range failedCodes {
 		for _, c := range failures.ProductCodes {

@@ -1,4 +1,4 @@
-# Ignore input files
+# Ignore input files at root directory
 /*.csv
 
 # Ignore the compiled binary
