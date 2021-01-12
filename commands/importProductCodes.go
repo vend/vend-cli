@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/jackharrisonsherlock/govend/vend"
@@ -146,7 +147,10 @@ func validateProductCodeUniqueness(records [][]string) error {
 // Post product codes to Vend
 func postProductCodes(productCodes []ProductCodeAdd) error {
 	var err error
+
+	failedProductCodes := map[string][]ProductCodeAdd{}
 	// Create the Vend URL
+	//TODO: Change .works to .com
 	url := fmt.Sprintf("https://%s.vendhq.works/api/2.0/products/actions/bulk", DomainPrefix)
 
 	fmt.Println("Begin processing product codes.")
@@ -168,12 +172,40 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 			fmt.Printf("\nBatch complete! Succesfully created %d Product Codes", len(productCodes[i:j]))
 		case http.StatusUnprocessableEntity:
 			fmt.Println("Validation error: ", response)
+			failedProductCodes[response] = productCodes[i:j]
 		default:
 			fmt.Println("Unknown error: ", response)
+			failedProductCodes[response] = productCodes[i:j]
 		}
 	}
 
-	fmt.Printf("\nFinished! Succesfully created %d Product Codes", len(productCodes))
+	// If any codes failed, export them
+	if len(failedProductCodes) > 0 {
+		err := writeOutput(failedProductCodes)
+		if err != nil {
+			fmt.Printf("\nUnsuccesssful! Failed to write ouput for %d Product Codes", len(failedProductCodes))
+			return err
+		}
+		numSuccessCodes := len(productCodes) - len(failedProductCodes)
+		fmt.Printf("\nFinished! Partially successful created %d Product Codes", numSuccessCodes)
+	} else {
+		fmt.Printf("\nFinished! Succesfully created %d Product Codes", len(productCodes))
+	}
 
 	return err
+}
+
+// writeOutput writes outcome of product code creation to csv
+func writeOutput(failedCodes map[string][]ProductCodeAdd) error {
+	headers := []string{"product_id", "type", "code", "reason"}
+	rows := make([][]string, 0, len(failedCodes))
+
+	for msg, codes := range failedCodes {
+		for _, c := range codes {
+			row := []string{c.ProductID, c.Data.Type, c.Data.Code, msg}
+			rows = append(rows, row)
+		}
+	}
+	fileName := "product_export_" + time.Now().Local().Format("20060102150405") + ".csv"
+	return writeCSV(fileName, headers, rows)
 }

@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/csv"
 	"fmt"
+	"os"
+
+	"encoding/csv"
 	"io/ioutil"
 	"net/http"
 )
@@ -33,6 +35,24 @@ func readRecords(csvBytes []byte) ([]string, [][]string, error) {
 	return header, records, nil
 }
 
+// writeCSV combines the headers and rows to create a csv file.
+func writeCSV(fileName string, headers []string, rows [][]string) error {
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY, 0777)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	csvWriter := csv.NewWriter(file)
+	strWrite := [][]string{headers}
+	strWrite = append(strWrite, rows...)
+
+	_ = csvWriter.WriteAll(strWrite)
+	csvWriter.Flush()
+	return nil
+}
+
+// makeRequest a custom request call that returns status code and message
 func makeRequest(method, url string, body interface{}) (int, string, error) {
 	req, err := vendClient.NewRequest(method, url, body)
 
