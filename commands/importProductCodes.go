@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/fatih/color"
@@ -26,6 +27,13 @@ type ProductCodeAdd struct {
 type ProductCode struct {
 	Type string `json:"type"`
 	Code string `json:"code"`
+}
+
+// ProductCodeAddErrors represents product codes that were not processed successfully with reasons.
+type ProductCodeAddErrors struct {
+	ProductCodes []ProductCodeAdd
+	Reason       string
+	Message      string
 }
 
 // Command config
@@ -148,7 +156,7 @@ func validateProductCodeUniqueness(records [][]string) error {
 func postProductCodes(productCodes []ProductCodeAdd) error {
 	var err error
 
-	failedProductCodes := map[string][]ProductCodeAdd{}
+	failedProductCodes := map[int]ProductCodeAddErrors{}
 	// Create the Vend URL
 	//TODO: Change .works to .com
 	url := fmt.Sprintf("https://%s.vendhq.works/api/2.0/products/actions/bulk", DomainPrefix)
@@ -172,10 +180,19 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 			fmt.Printf("\nBatch complete! Succesfully created %d Product Codes", len(productCodes[i:j]))
 		case http.StatusUnprocessableEntity:
 			fmt.Println("Validation error: ", response)
-			failedProductCodes[response] = productCodes[i:j]
+
+			failedProductCodes[i+1] = ProductCodeAddErrors{
+				productCodes[i:j],
+				"Validation",
+				response,
+			}
 		default:
 			fmt.Println("Unknown error: ", response)
-			failedProductCodes[response] = productCodes[i:j]
+			failedProductCodes[i+1] = ProductCodeAddErrors{
+				productCodes[i:j],
+				"Unknown",
+				response,
+			}
 		}
 	}
 
@@ -196,16 +213,16 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 }
 
 // writeOutput writes outcome of product code creation to csv
-func writeOutput(failedCodes map[string][]ProductCodeAdd) error {
-	headers := []string{"product_id", "type", "code", "reason"}
+func writeOutput(failedCodes map[int]ProductCodeAddErrors) error {
+	headers := []string{"product_id", "type", "code", "batch_number", "reason", "message"}
 	rows := make([][]string, 0, len(failedCodes))
 
-	for msg, codes := range failedCodes {
-		for _, c := range codes {
-			row := []string{c.ProductID, c.Data.Type, c.Data.Code, msg}
+	for batchNum, failures := range failedCodes {
+		for _, c := range failures.ProductCodes {
+			row := []string{c.ProductID, c.Data.Type, c.Data.Code, strconv.Itoa(batchNum), failures.Reason, failures.Message}
 			rows = append(rows, row)
 		}
 	}
-	fileName := "product_export_" + time.Now().Local().Format("20060102150405") + ".csv"
+	fileName := "product_code_add_" + time.Now().Local().Format("20060102150405") + ".csv"
 	return writeCSV(fileName, headers, rows)
 }

@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"bytes"
-	"fmt"
 	"os"
-
-	"encoding/csv"
+	"fmt"
+	
 	"io/ioutil"
 	"net/http"
+	"encoding/csv"
 )
 
 // loadRecordsFromCSV reads the content of a csv file and returns headers and records.
@@ -63,12 +63,10 @@ func makeRequest(method, url string, body interface{}) (int, string, error) {
 		fmt.Println("Error making request")
 		return 0, "", err
 	}
-
 	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("\nError while reading response body: %s\n", err)
 		return 0, "", err
 	}
-
 	return resp.StatusCode, string(responseBody), nil
 }
