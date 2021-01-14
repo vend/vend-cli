@@ -64,7 +64,7 @@ func importProductCodes() {
 	vendClient = &vc
 
 	// Read Product Codes from CSV file
-	fmt.Println("\nReading Product Codes CSV...")
+	fmt.Println("Reading product codes CSV...")
 	productCodes, err := readProductCodesCSV(FilePath)
 	if err != nil {
 		log.Fatalf("Couldnt read Product Code CSV file, %s", err)
@@ -96,7 +96,7 @@ func readProductCodesCSV(filePath string) ([]ProductCodeAdd, error) {
 	// Ensure there are no duplicate product codes
 	err = validateProductCodeUniqueness(records)
 	if err != nil {
-		fmt.Println("Uniqueness validation failed: ", err.Error())
+		fmt.Println("Uniqueness validation failed! All product codes must be unique across the product catalogue. ", err.Error())
 		return nil, err
 	}
 
@@ -169,7 +169,6 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 			j = len(productCodes)
 		}
 		// Make the request to Vend
-		fmt.Printf("Posting: %v \n", productCodes[i:j])
 		statusCode, response, err := makeRequest("POST", url, productCodes[i:j])
 		if err != nil {
 			return fmt.Errorf("something went wrong trying to post product code: %s, %s", err, response)
@@ -197,12 +196,12 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 
 	// If any codes failed, export them
 	if len(failedProductCodes) > 0 {
-		err := writeOutput(failedProductCodes)
+		filename, err := writeOutput(failedProductCodes)
 		if err != nil {
 			fmt.Printf("\nUnsuccesssful! Failed to write ouput for %d Product Codes", len(failedProductCodes))
 			return err
 		}
-		fmt.Printf("\nFinished! Partially successful, %d batches failed", len(failedProductCodes))
+		fmt.Printf("\nFinished! Partially successful, %d batches failed. Please check %s file for the failed batches.", len(failedProductCodes), filename)
 	} else {
 		fmt.Printf("\nFinished! Succesfully created %d Product Codes", len(productCodes))
 	}
@@ -211,7 +210,7 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 }
 
 // writeOutput writes outcome of product code creation to csv
-func writeOutput(failedCodes map[int]ProductCodeAddErrors) error {
+func writeOutput(failedCodes map[int]ProductCodeAddErrors) (string, error) {
 	headers := []string{"product_id", "type", "code", "batch_number", "reason", "message"}
 	var rows [][]string
 
@@ -222,5 +221,5 @@ func writeOutput(failedCodes map[int]ProductCodeAddErrors) error {
 		}
 	}
 	fileName := "product_code_add_" + time.Now().Local().Format("20060102150405") + ".csv"
-	return writeCSV(fileName, headers, rows)
+	return fileName, writeCSV(fileName, headers, rows)
 }

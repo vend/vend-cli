@@ -12,6 +12,7 @@ func TestExtractingProductCodes(t *testing.T) {
 		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33102", "ITF", "555"),
 		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33103", "ISBN", "3423"),
 		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33103", "UPC", "5354353"),
+		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33103", "CUSTOM", "1000022"),
 		toCodeAddAction("0242ac12-0002-11e9-e8c4-659494e33104", "JAN", "3442"),
 	}
 
