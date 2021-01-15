@@ -24,6 +24,7 @@ $ brew install vendcli
 - Export Audit Log
 - Export Images
 - Import Images
+- Import Product Codes
 - Import Suppliers
 - Import Store Credits
 - Adjust Customer Loyalty
@@ -77,6 +78,10 @@ When running a command you need to pass the flags that specify the parameters fo
 #### Import Images
 
 	$ vendcli import-images -d domainprefix -t token -f filename.csv
+	
+#### Import Product Codes
+
+	$ vendcli import-product-codes -d domainprefix -t token -f filename.csv
 
 #### Import Suppliers
 
