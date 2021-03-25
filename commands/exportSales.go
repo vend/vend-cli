@@ -461,7 +461,13 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 		var userName string
 		for _, user := range users {
 			if sale.UserID != nil && *sale.UserID == *user.ID {
-				userName = *user.DisplayName
+				if user.DisplayName != nil {
+					userName = *user.DisplayName
+				} else if user.Username != nil {
+					userName = *user.Username
+				} else {
+					userName = ""
+				}
 				break
 			} else {
 				userName = ""
