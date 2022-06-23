@@ -116,16 +116,20 @@ func cWriteFile(customers []vend.Customer) error {
 		var id, code, firstName, lastName, email, yearToDate, balance, loyaltyBalance, note, gender, dateOfBirth, companyName, phone, mobile, fax, twitter,
 			website, doNotEmail, physicalSuburb, physicalCity, physicalPostcode, physicalState, postalSuburb, postalCity, postalState, createdAt, postalPostcode, physicalAddress1, physicalAddress2, postalAddress1, postalAddress2, postalCountryID, customField1, customField2, customField3, customField4 string
 
-		if *customer.Code == "Anonymous Customer" {
-			continue
+		// Moving before ID since the loop can continue
+		// after the anonymous code check
+		if customer.Code != nil {
+			// Moving in here to prevent seg fault
+			if *customer.Code == "Anonymous Customer" {
+				continue
+			}
+			code = *customer.Code
 		}
 
 		if customer.ID != nil {
 			id = *customer.ID
 		}
-		if customer.Code != nil {
-			code = *customer.Code
-		}
+		
 		if customer.FirstName != nil {
 			firstName = *customer.FirstName
 		}
