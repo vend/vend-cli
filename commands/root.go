@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const version = "1.5.0"
+
 // Variables for Client authentication details and flags
 var (
 	DomainPrefix string
@@ -28,7 +30,8 @@ var (
 
 // Command Config
 var rootCmd = &cobra.Command{
-	Use: "vendcli",
+	Use:     "vendcli",
+	Version: version,
 	Short: fmt.Sprintf(`
 %s`, logo)}
 
