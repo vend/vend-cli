@@ -368,6 +368,13 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 			}
 		}
 
+		// without this check seg faults down the line as 
+		// there is an assumption that everything is good from this point
+		if res.StatusCode > 399 {
+			fmt.Printf(color.RedString("Error uploading image with status: %s\n\n", res.Status))
+			return err
+		}
+
 		// Make sure response body is closed at end.
 		defer res.Body.Close()
 
