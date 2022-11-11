@@ -7,9 +7,54 @@
 ## Installation
 
 ```
-$ brew tap jackharrisonsherlock/vendcli
-$ brew install vendcli
+$ git clone https://github.com/vend/vend-cli.git
+$ cd vend-cli
 ```
+Then vend-cli can be run through
+```
+$ go run main.go [command name]
+```
+e.g.
+```
+$ go run main.go --help
+
+                             _ 
+ __   __   ___   _ __     __| |
+ \ \ / /  / _ \ | '_ \   / _  |
+  \ V /  |  __/ | | | | | (_| |
+   \_/    \___| |_| |_|  \__,_|
+
+Usage:
+  vendcli [command]
+
+Available Commands:
+  delete-customers     Delete Customers
+  delete-products      Delete Products
+  export-auditlog      Export Audit Log
+  export-customers     Export Customers
+  export-giftcards     Export Gift Cards
+  export-images        Export Product Images
+  export-sales         Export Sales
+  export-storecredits  Export Store Credits
+  export-suppliers     Export Suppliers 
+  export-users         Export Users
+  help                 Help about any command
+  import-images        Import Product Images
+  import-product-codes Import Product Codes
+  import-storecredits  Import Store Credits
+  import-suppliers     Import Suppliers
+  loyalty-adjustment   Customer Loyalty Adjustment
+  void-giftcards       Void Gift Cards
+  void-sales           Void Sales
+
+Flags:
+  -d, --Domain string   The Vend store name (prefix in xxxx.vendhq.com)
+  -t, --Token string    API Access Token for the store, Setup -> Personal Tokens.
+  -h, --help            help for vendcli
+
+Use "vendcli [command] --help" for more information about a command.
+```
+
 
 ## Commands
 
