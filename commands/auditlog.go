@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
+	"github.com/vend/govend/vend"
 )
 
 // auditlogCmd represents the auditlog command

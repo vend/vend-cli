@@ -6,8 +6,8 @@ import (
 	"log"
 
 	"github.com/fatih/color"
-	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
+	"github.com/vend/govend/vend"
 )
 
 // voidSalesCmd represents the voidSales command
