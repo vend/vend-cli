@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
+	"github.com/vend/govend/vend"
 )
 
 // Command config
@@ -481,29 +481,29 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 
 		// Write first sale line to file.
 		var record []string
-		record = append(record, dateStr)             // Date
-		record = append(record, timeStr)             // Time
-		record = append(record, invoiceNumber)       // Receipt Number
-		record = append(record, "Sale")              // Line Type
-		record = append(record, customerCode)        // Customer Code
-		record = append(record, customerName) // Customer Name
-		record = append(record, customerEmail)        // Customer Email
-		record = append(record, doNotEmail)        // Marketing Opt in/out
-		record = append(record, saleNote)            // Note
-		record = append(record, totalQuantityStr)    // Quantity
-		record = append(record, totalPrice)          // Subtotal
-		record = append(record, totalTax)            // Sales Tax
-		record = append(record, totalDiscountStr)    // Discount
-		record = append(record, totalLoyaltyStr)     // Loyalty
-		record = append(record, total)               // Sale total
-		record = append(record, "")                  // Paid
-		record = append(record, saleDetails)         // Details
-		record = append(record, registerName)        // Register
-		record = append(record, userName)            // User
-		record = append(record, saleStatus)          // Status
-		record = append(record, "")                  // Sku
-		record = append(record, "")                  // AccountCodeSale
-		record = append(record, "")                  // AccountCodePurchase
+		record = append(record, dateStr)          // Date
+		record = append(record, timeStr)          // Time
+		record = append(record, invoiceNumber)    // Receipt Number
+		record = append(record, "Sale")           // Line Type
+		record = append(record, customerCode)     // Customer Code
+		record = append(record, customerName)     // Customer Name
+		record = append(record, customerEmail)    // Customer Email
+		record = append(record, doNotEmail)       // Marketing Opt in/out
+		record = append(record, saleNote)         // Note
+		record = append(record, totalQuantityStr) // Quantity
+		record = append(record, totalPrice)       // Subtotal
+		record = append(record, totalTax)         // Sales Tax
+		record = append(record, totalDiscountStr) // Discount
+		record = append(record, totalLoyaltyStr)  // Loyalty
+		record = append(record, total)            // Sale total
+		record = append(record, "")               // Paid
+		record = append(record, saleDetails)      // Details
+		record = append(record, registerName)     // Register
+		record = append(record, userName)         // User
+		record = append(record, saleStatus)       // Status
+		record = append(record, "")               // Sku
+		record = append(record, "")               // AccountCodeSale
+		record = append(record, "")               // AccountCodePurchase
 		writer.Write(record)
 
 		for _, lineitem := range *sale.LineItems {
