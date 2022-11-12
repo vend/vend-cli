@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
+	"github.com/vend/govend/vend"
 )
 
 // Command config
@@ -129,7 +129,7 @@ func cWriteFile(customers []vend.Customer) error {
 		if customer.ID != nil {
 			id = *customer.ID
 		}
-		
+
 		if customer.FirstName != nil {
 			firstName = *customer.FirstName
 		}
