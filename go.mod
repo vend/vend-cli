@@ -9,7 +9,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.3.0
-	github.com/vend/govend v0.0.0-20221116203407-ecb0f263d8f9
+	github.com/vend/govend v0.0.0-20221207032936-e210e269e34e
 	github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3
 )
 
