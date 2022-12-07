@@ -16,3 +16,10 @@ type Pagination struct {
 	PageSize int64 `json:"page_size"`
 	Pages    int64 `json:"pages"`
 }
+
+type Errors struct {
+	Error struct {
+		Global []string `json:"global"`
+	} `json:"errors"`
+	Reference string `json:"reference"`
+}
