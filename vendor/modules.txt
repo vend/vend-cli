@@ -71,7 +71,7 @@ github.com/stretchr/testify/assert
 # github.com/subosito/gotenv v1.2.0
 ## explicit
 github.com/subosito/gotenv
-# github.com/vend/govend v0.0.0-20221116203407-ecb0f263d8f9
+# github.com/vend/govend v0.0.0-20221207032936-e210e269e34e
 ## explicit
 github.com/vend/govend/vend
 # github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3
