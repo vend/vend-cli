@@ -190,6 +190,10 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
+github.com/vend/govend v0.0.0-20200516062659-8e99d8afb6df h1:d/qUzizpsq75vV9gF5QpCt72SoTfrhN68q7cpDaB2Ng=
+github.com/vend/govend v0.0.0-20200516062659-8e99d8afb6df/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
+github.com/vend/govend v0.0.0-20221116203407-ecb0f263d8f9 h1:XNmhtcwWJvbDP1Pr6UarvQWcEqhFP5GUxVw1IgrOtsY=
+github.com/vend/govend v0.0.0-20221116203407-ecb0f263d8f9/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
 github.com/vend/govend v0.0.0-20221207032936-e210e269e34e h1:Kek2M5Tkl7Pkd4EY/ACOdsQD6sEKbnvSEIfJ7cXjGAg=
 github.com/vend/govend v0.0.0-20221207032936-e210e269e34e/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
 github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3 h1:nxWV9UNdGHW3OezVTq99ak99RvqMM+H+oG+aKNraxT4=
