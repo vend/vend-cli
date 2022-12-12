@@ -43,16 +43,31 @@ func getAllProducts() {
 		log.Fatalf("Failed retrieving products from Vend %v", err)
 	}
 
+	// Get Outlets
+	outlets, outletsMap, err := vc.Outlets()
+	if err != nil {
+		log.Fatalf("Failed retrieving outlets from Vend %v", err)
+	}
+
+	// Get Inventory
+	inventoryRecords, err := vc.Inventory()
+	if err != nil {
+		fmt.Println("Error fetching inventory records")
+	}
+
+	recordsMap := buildRecordsMap(inventoryRecords, outlets)
+
 	// Write Products to CSV
 	fmt.Println("Writing products to CSV file...")
-	err = productsWriteFile(products)
+	err = productsWriteFile(products, outlets, outletsMap, recordsMap)
 	if err != nil {
 		log.Fatalf(color.RedString("Failed writing products to CSV: %v", err))
 	}
 	fmt.Println(color.GreenString("\nExported %v products  🎉\n", len(products)))
 }
 
-func productsWriteFile(products []vend.Product) error {
+func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
+	outletsMap map[string][]vend.Outlet, recordsMap map[string]map[string]vend.InventoryRecord) error {
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_product_export_%v.csv", DomainPrefix, time.Now().Unix())
@@ -88,6 +103,14 @@ func productsWriteFile(products []vend.Product) error {
 	header = append(header, "updated at")     // 17
 	header = append(header, "deleted at")     // 18
 	header = append(header, "version")        // 19
+
+	for _, outlet := range outlets {
+		header = append(header, fmt.Sprintf("inventory level: %s", *outlet.Name)) // 20
+		header = append(header, fmt.Sprintf("current amount: %s", *outlet.Name))  // 21
+		header = append(header, fmt.Sprintf("average cost: %s", *outlet.Name))    // 22
+		header = append(header, fmt.Sprintf("reorder point: %s", *outlet.Name))   // 23
+		header = append(header, fmt.Sprintf("reorder amount: %s", *outlet.Name))  // 24
+	}
 
 	writer.Write(header)
 
@@ -186,8 +209,79 @@ func productsWriteFile(products []vend.Product) error {
 		record = append(record, deletedAt)       // 18
 		record = append(record, version)         // 19
 
+		// loop through outlets and append inventory information
+		for _, outlet := range outlets {
+			if invRecord, ok := recordsMap[*outlet.ID][*product.ID]; ok {
+				// inventory level                           // 20
+				if invRecord.InventoryLevel != nil {
+					inventoryLevel := strconv.FormatInt(*invRecord.InventoryLevel, 10)
+					record = append(record, inventoryLevel)
+				} else {
+					record = append(record, "")
+				}
+
+				// current amount                            // 21
+				if invRecord.CurrentAmount != nil {
+					currentAmount := strconv.FormatInt(*invRecord.CurrentAmount, 10)
+					record = append(record, currentAmount)
+				} else {
+					record = append(record, "")
+				}
+
+				// average cost                              // 22
+				if invRecord.AverageCost != nil {
+					averageCost := fmt.Sprintf("%.2f", *invRecord.AverageCost)
+					record = append(record, averageCost)
+				} else {
+					record = append(record, "")
+				}
+
+				// reorder point                             // 23
+				if invRecord.ReorderPoint != nil {
+					reorderPoint := strconv.FormatInt(*invRecord.ReorderPoint, 10)
+					record = append(record, reorderPoint)
+				} else {
+					record = append(record, "")
+				}
+
+				// reorderamount                             // 24
+				if invRecord.ReorderAmount != nil {
+					reorderAmount := strconv.FormatInt(*invRecord.ReorderAmount, 10)
+					record = append(record, reorderAmount)
+				} else {
+					record = append(record, "")
+				}
+
+				// even if there isn't an inventory record, we still want to put something in the
+				// cell, so our data remains aligned with the header
+			} else {
+				record = append(record, "") // 20
+				record = append(record, "") // 21
+				record = append(record, "") // 22
+				record = append(record, "") // 23
+				record = append(record, "") // 24
+			}
+		}
+
 		writer.Write(record)
 	}
 	writer.Flush()
 	return err
+}
+
+func buildRecordsMap(inventoryRecords []vend.InventoryRecord, outlets []vend.Outlet) map[string]map[string]vend.InventoryRecord {
+	var recordsMap = map[string]map[string]vend.InventoryRecord{}
+
+	for _, outlet := range outlets {
+		recordsMap[*outlet.ID] = map[string]vend.InventoryRecord{}
+	}
+
+	for _, record := range inventoryRecords {
+
+		if _, ok := recordsMap[*record.OutletID]; ok {
+			recordsMap[*record.OutletID][*record.ProductID] = record
+		}
+	}
+
+	return recordsMap
 }
