@@ -196,6 +196,8 @@ github.com/vend/govend v0.0.0-20221116203407-ecb0f263d8f9 h1:XNmhtcwWJvbDP1Pr6Ua
 github.com/vend/govend v0.0.0-20221116203407-ecb0f263d8f9/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
 github.com/vend/govend v0.0.0-20221207032936-e210e269e34e h1:Kek2M5Tkl7Pkd4EY/ACOdsQD6sEKbnvSEIfJ7cXjGAg=
 github.com/vend/govend v0.0.0-20221207032936-e210e269e34e/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
+github.com/vend/govend v0.0.0-20221219003244-0dd9533fbae2 h1:jfomTSo55wSTaSMQj1PBGx+53PkOZkH+goNzihfTJ48=
+github.com/vend/govend v0.0.0-20221219003244-0dd9533fbae2/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
 github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3 h1:nxWV9UNdGHW3OezVTq99ak99RvqMM+H+oG+aKNraxT4=
 github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3/go.mod h1:P0XJ0/hGOuePFbpFCHyzHMls2afcv32GHlmL/VuIpHg=
 github.com/wallclockbuilder/testify v0.0.0-20150512124233-dab07ac62d49 h1:2q+dCr8jqV705ORsqrqTATbsXAUQbYr6iSnPY7EVzWY=
