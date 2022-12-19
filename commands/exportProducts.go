@@ -83,41 +83,47 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 	writer := csv.NewWriter(file)
 
 	var header []string
-	header = append(header, "id")             // 0
-	header = append(header, "handle")         // 1
-	header = append(header, "sku")            // 2
-	header = append(header, "name")           // 3
-	header = append(header, "option 1 name")  // 4
-	header = append(header, "option 1 value") // 5
-	header = append(header, "option 2 name")  // 6
-	header = append(header, "option 2 value") // 7
-	header = append(header, "option 3 name")  // 8
-	header = append(header, "option 3 value") // 9
-	header = append(header, "product type")   // 10
-	header = append(header, "brand name")     // 11
-	header = append(header, "supplier name")  // 12
-	header = append(header, "supplier code")  // 13
-	header = append(header, "active")         // 14
-	header = append(header, "description")    // 15
-	header = append(header, "created at")     // 16
-	header = append(header, "updated at")     // 17
-	header = append(header, "deleted at")     // 18
-	header = append(header, "version")        // 19
+	header = append(header, "id")                          // 0
+	header = append(header, "handle")                      // 1
+	header = append(header, "sku")                         // 2
+	header = append(header, "name")                        // 3
+	header = append(header, "product classification")      // 4
+	header = append(header, "option 1 name")               // 5
+	header = append(header, "option 1 value")              // 6
+	header = append(header, "option 2 name")               // 7
+	header = append(header, "option 2 value")              // 8
+	header = append(header, "option 3 name")               // 9
+	header = append(header, "option 3 value")              // 10
+	header = append(header, "product type")                // 11
+	header = append(header, "brand name")                  // 12
+	header = append(header, "supplier name")               // 13
+	header = append(header, "supplier code")               // 14
+	header = append(header, "description")                 // 15
+	header = append(header, "count of images")             // 16
+	header = append(header, "supply price")                // 17
+	header = append(header, "general price excluding tax") // 18
 
+	// loop through outlets and list inventory information
 	for _, outlet := range outlets {
-		header = append(header, fmt.Sprintf("inventory level: %s", *outlet.Name)) // 20
-		header = append(header, fmt.Sprintf("current amount: %s", *outlet.Name))  // 21
-		header = append(header, fmt.Sprintf("average cost: %s", *outlet.Name))    // 22
-		header = append(header, fmt.Sprintf("reorder point: %s", *outlet.Name))   // 23
-		header = append(header, fmt.Sprintf("reorder amount: %s", *outlet.Name))  // 24
+		header = append(header, fmt.Sprintf("inventory level: %s", *outlet.Name)) // 19
+		header = append(header, fmt.Sprintf("current amount: %s", *outlet.Name))  // 20
+		header = append(header, fmt.Sprintf("average cost: %s", *outlet.Name))    // 21
+		header = append(header, fmt.Sprintf("reorder point: %s", *outlet.Name))   // 22
+		header = append(header, fmt.Sprintf("reorder amount: %s", *outlet.Name))  // 23
 	}
+
+	header = append(header, "active")     // 24
+	header = append(header, "created at") // 25
+	header = append(header, "updated at") // 26
+	header = append(header, "deleted at") // 27
+	header = append(header, "version")    // 28
 
 	writer.Write(header)
 
 	// loop through products and write to csv
 	for _, product := range products {
-		var id, handle, sku, name, productType, brandName, supplierName, supplierCode, active, createdAt,
-			updatedAt, deletedAt, description, version string
+		var id, handle, sku, name, productClassification, productType, brandName, supplierName, supplierCode, description,
+			imageCount, supplierPrice, priceExcludingTax, active, createdAt, updatedAt, deletedAt, version string
 
 		var variantName, variantValue [3]string
 
@@ -135,6 +141,16 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 		if product.Name != nil {
 			name = *product.Name
+		}
+
+		if product.IsComposite {
+			productClassification = "COMPOSITE"
+		} else if product.HasVariants {
+			productClassification = "PARENT VARIANT"
+		} else if product.VariantParentID != nil {
+			productClassification = "CHILD VARIANT"
+		} else {
+			productClassification = "STANDARD"
 		}
 
 		// set variant option fields
@@ -163,6 +179,14 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 			if supplier.SupplierName != nil {
 				supplierName = *supplier.SupplierName
 			}
+			if supplier.Price != nil {
+				supplierPrice = fmt.Sprintf("%.2f", *supplier.Price)
+			}
+
+		}
+
+		if product.PriceExcludingTax != nil {
+			priceExcludingTax = fmt.Sprintf("%.2f", *product.PriceExcludingTax)
 		}
 
 		active = strconv.FormatBool(product.Active)
@@ -183,36 +207,37 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 			description = *product.Description
 		}
 
+		imageCount = strconv.Itoa(len(product.Images))
+
 		if product.Version != nil {
 			version = strconv.FormatInt(*product.Version, 10)
 		}
 
 		var record []string
-		record = append(record, id)              //0
-		record = append(record, handle)          // 1
-		record = append(record, sku)             // 2
-		record = append(record, name)            // 3
-		record = append(record, variantName[0])  // 4
-		record = append(record, variantValue[0]) // 5
-		record = append(record, variantName[1])  // 6
-		record = append(record, variantValue[1]) // 7
-		record = append(record, variantName[2])  // 8
-		record = append(record, variantValue[2]) // 9
-		record = append(record, productType)     // 10
-		record = append(record, brandName)       // 11
-		record = append(record, supplierName)    // 12
-		record = append(record, supplierCode)    // 13
-		record = append(record, active)          // 14
-		record = append(record, description)     // 15
-		record = append(record, createdAt)       // 16
-		record = append(record, updatedAt)       // 17
-		record = append(record, deletedAt)       // 18
-		record = append(record, version)         // 19
+		record = append(record, id)                    // 0
+		record = append(record, handle)                // 1
+		record = append(record, sku)                   // 2
+		record = append(record, name)                  // 3
+		record = append(record, productClassification) // 4
+		record = append(record, variantName[0])        // 5
+		record = append(record, variantValue[0])       // 6
+		record = append(record, variantName[1])        // 7
+		record = append(record, variantValue[1])       // 8
+		record = append(record, variantName[2])        // 9
+		record = append(record, variantValue[2])       // 10
+		record = append(record, productType)           // 11
+		record = append(record, brandName)             // 12
+		record = append(record, supplierName)          // 13
+		record = append(record, supplierCode)          // 14
+		record = append(record, description)           // 15
+		record = append(record, imageCount)            // 16
+		record = append(record, supplierPrice)         // 17
+		record = append(record, priceExcludingTax)     // 18
 
 		// loop through outlets and append inventory information
 		for _, outlet := range outlets {
 			if invRecord, ok := recordsMap[*outlet.ID][*product.ID]; ok {
-				// inventory level                           // 20
+				// inventory level                           // 19
 				if invRecord.InventoryLevel != nil {
 					inventoryLevel := strconv.FormatInt(*invRecord.InventoryLevel, 10)
 					record = append(record, inventoryLevel)
@@ -220,7 +245,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 					record = append(record, "")
 				}
 
-				// current amount                            // 21
+				// current amount                            // 20
 				if invRecord.CurrentAmount != nil {
 					currentAmount := strconv.FormatInt(*invRecord.CurrentAmount, 10)
 					record = append(record, currentAmount)
@@ -228,7 +253,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 					record = append(record, "")
 				}
 
-				// average cost                              // 22
+				// average cost                              // 21
 				if invRecord.AverageCost != nil {
 					averageCost := fmt.Sprintf("%.2f", *invRecord.AverageCost)
 					record = append(record, averageCost)
@@ -236,7 +261,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 					record = append(record, "")
 				}
 
-				// reorder point                             // 23
+				// reorder point                             // 22
 				if invRecord.ReorderPoint != nil {
 					reorderPoint := strconv.FormatInt(*invRecord.ReorderPoint, 10)
 					record = append(record, reorderPoint)
@@ -244,7 +269,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 					record = append(record, "")
 				}
 
-				// reorderamount                             // 24
+				// reorderamount                             // 23
 				if invRecord.ReorderAmount != nil {
 					reorderAmount := strconv.FormatInt(*invRecord.ReorderAmount, 10)
 					record = append(record, reorderAmount)
@@ -255,13 +280,18 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 				// even if there isn't an inventory record, we still want to put something in the
 				// cell, so our data remains aligned with the header
 			} else {
+				record = append(record, "") // 19
 				record = append(record, "") // 20
 				record = append(record, "") // 21
 				record = append(record, "") // 22
 				record = append(record, "") // 23
-				record = append(record, "") // 24
 			}
 		}
+		record = append(record, active)    // 24
+		record = append(record, createdAt) // 25
+		record = append(record, updatedAt) // 26
+		record = append(record, deletedAt) // 27
+		record = append(record, version)   // 28
 
 		writer.Write(record)
 	}
@@ -269,6 +299,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 	return err
 }
 
+// builds hash table so inventory records can be accessed quickly
 func buildRecordsMap(inventoryRecords []vend.InventoryRecord, outlets []vend.Outlet) map[string]map[string]vend.InventoryRecord {
 	var recordsMap = map[string]map[string]vend.InventoryRecord{}
 
