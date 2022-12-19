@@ -12,7 +12,7 @@ import (
 	"github.com/vend/govend/vend"
 )
 
-const version = "1.5.0 Beta: Remove &nbrsp from void-giftcards command"
+const version = "1.5 Beta: update-sale-id"
 
 // Variables for Client authentication details and flags
 var (
