@@ -18,7 +18,7 @@ import (
 
 // Command config
 var updateSaleIDcmd = &cobra.Command{
-	Use:   "update-sale-id",
+	Use:   "update-sale-user-id",
 	Short: "Update the user id for a list of sales",
 	Long: fmt.Sprintf(`
 Updates the user for a given list of sales.
@@ -42,7 +42,7 @@ Example: %s
 
 		color.RedString("WARNING:"),
 		color.RedString("do not use this"),
-		color.GreenString("vendcli update-sale-id -t TOKEN -d DOMAINPREFIX -f PATH/TO/FILE")),
+		color.GreenString("vendcli update-sale-user-id -t TOKEN -d DOMAINPREFIX -f PATH/TO/FILE")),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		updateSaleID()
@@ -157,6 +157,17 @@ func getSale9(id string) (vend.Sale9, error) {
 func changeUser(sale vend.Sale9, userID string) vend.Sale9 {
 
 	*sale.UserID = userID
+
+	// also set any salesperson ids to new desired user
+	if len(sale.RegisterSaleProducts) > 0 {
+		for _, product := range sale.RegisterSaleProducts {
+			for _, attribute := range product.Attributes {
+				if attribute.Name != nil && *attribute.Name == "salesperson_id" && attribute.Value != nil {
+					*attribute.Value = userID
+				}
+			}
+		}
+	}
 
 	return sale
 }
