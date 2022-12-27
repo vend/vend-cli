@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -98,6 +99,7 @@ func readGiftCardCSV(FilePath string) ([]string, error) {
 	for _, row := range rows {
 		rowNumber++
 		giftcardNo := row[0]
+		giftcardNo = strings.Trim(giftcardNo, "\u00a0 ") // removes nonbreaking space, if present. Support has been seeing these in some xlsx exports
 		giftCardIDs = append(giftCardIDs, giftcardNo)
 	}
 

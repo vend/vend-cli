@@ -74,16 +74,32 @@ func importImages(FilePath string) {
 	// For each product match, first grab the image from the URL, then post that
 	// image to the product on Vend.
 	fmt.Printf("Grabbing images to post to Vend...\n\n")
+	uploaded := 0
+	var failedList []vend.ProductUpload
 	for _, product := range matchedProducts {
+
 		imagePath, err := Grab(product)
 		if err != nil {
 			fmt.Println("Failed to post images to Vend")
 			continue
 		}
-		UploadImage(imagePath, product)
+		err = UploadImage(imagePath, product)
+		if err != nil {
+			failedList = append(failedList, product)
+			fmt.Println(err)
+		} else {
+			uploaded++
+		}
 	}
 
-	fmt.Println(color.GreenString("\nFinished!\n"))
+	fmt.Printf(color.GreenString("\nFinished! Uploaded %v out of %v products\n"), uploaded, len(matchedProducts))
+	if len(failedList) > 0 {
+		fmt.Printf("\nThe following products could not be uploaded:")
+		fmt.Printf("\nHandle,SKU\n")
+		for _, failedProduct := range failedList {
+			fmt.Printf("%s,%s\n", failedProduct.Handle, failedProduct.SKU)
+		}
+	}
 }
 
 func matchVendProduct(productsFromVend map[string]vend.Product, productsFromCSV []vend.ProductUpload) []vend.ProductUpload {
@@ -366,6 +382,13 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 				os.Remove(imagePath)
 				break
 			}
+		}
+		// Add status code check
+		if !vend.ResponseCheck(res.StatusCode) {
+			response := vend.Errors{}
+			resBody, _ := ioutil.ReadAll(res.Body)
+			json.Unmarshal(resBody, &response)
+			return fmt.Errorf(color.RedString("\nError uploading image: %s\n", response.Error.Global[0]))
 		}
 
 		// Make sure response body is closed at end.
