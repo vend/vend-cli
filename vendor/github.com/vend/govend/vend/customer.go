@@ -27,6 +27,7 @@ type Customer struct {
 	Gender            *string  `json:"gender,omitempty"`
 	DateOfBirth       *string  `json:"date_of_birth,omitempty"`
 	CompanyName       *string  `json:"company_name,omitempty"`
+	GroupId           *string  `json:"customer_group_id,omitempty"`
 	DoNotEmail        *bool    `json:"do_not_email,omitempty"`
 	Phone             *string  `json:"phone,omitempty"`
 	Mobile            *string  `json:"mobile,omitempty"`
@@ -55,6 +56,11 @@ type Customer struct {
 	LoyaltyAdjustment *string  `json:"loyalty_adjustment"`
 }
 
+type CustomerGroups struct {
+	ID   string `json:"id,omitempty`
+	Name string `json:"name,omitempty"`
+}
+
 // Customers grabs and collates all customers in pages of 10,000.
 func (c *Client) Customers() ([]Customer, error) {
 
@@ -79,4 +85,44 @@ func (c *Client) Customers() ([]Customer, error) {
 	}
 
 	return customers, err
+}
+
+func (c *Client) CustomerGroups() (map[string]string, error) {
+	groups := []CustomerGroups{}
+	page := []CustomerGroups{}
+
+	data, v, err := c.ResourcePage(0, "GET", "customer_groups")
+	err = json.Unmarshal(data, &page)
+	if err != nil {
+		log.Printf("error while unmarshalling: %s", err)
+	}
+
+	groups = append(groups, page...)
+
+	for len(page) > 0 {
+		page = []CustomerGroups{}
+		data, v, err = c.ResourcePage(v, "GET", "customer_groups")
+		err = json.Unmarshal(data, &page)
+		groups = append(groups, page...)
+
+	}
+
+	CustomerGroupMap := make(map[string]string)
+	for _, group := range groups {
+		CustomerGroupMap[group.ID] = group.Name
+	}
+
+	return CustomerGroupMap, err
+
+}
+
+// CustomerMap maps customer codes to customer ids
+func CustomerMap(customers []Customer) map[string]string {
+
+	CustomerMap := make(map[string]string)
+	for _, customer := range customers {
+		CustomerMap[*customer.Code] = *customer.ID
+	}
+
+	return CustomerMap
 }

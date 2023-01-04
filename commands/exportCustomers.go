@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
+	"github.com/vend/govend/vend"
 )
 
 // Command config
@@ -42,9 +42,14 @@ func getAllCustomers() {
 		log.Fatalf("Failed retrieving customers from Vend %v", err)
 	}
 
+	customerGroupMap, err := vc.CustomerGroups()
+	if err != nil {
+		log.Fatalf("Failed retrieving customer groups from Vend %v", err)
+	}
+
 	// Write Customers to CSV
 	fmt.Println("Writing customers to CSV file...")
-	err = cWriteFile(customers)
+	err = cWriteFile(customers, customerGroupMap)
 	if err != nil {
 		log.Fatalf(color.RedString("Failed writing customers to CSV: %v", err))
 	}
@@ -53,7 +58,7 @@ func getAllCustomers() {
 }
 
 // WriteFile writes customer info to file.
-func cWriteFile(customers []vend.Customer) error {
+func cWriteFile(customers []vend.Customer, customerGroupMap map[string]string) error {
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_customer_export_%v.csv", DomainPrefix, time.Now().Unix())
@@ -75,6 +80,7 @@ func cWriteFile(customers []vend.Customer) error {
 	header = append(header, "first_name")
 	header = append(header, "last_name")
 	header = append(header, "email")
+	header = append(header, "customer_group")
 	header = append(header, "year_to_date")
 	header = append(header, "balance")
 	header = append(header, "loyalty_balance")
@@ -113,7 +119,7 @@ func cWriteFile(customers []vend.Customer) error {
 	// Now loop through each customer object and populate the CSV.
 	for _, customer := range customers {
 
-		var id, code, firstName, lastName, email, yearToDate, balance, loyaltyBalance, note, gender, dateOfBirth, companyName, phone, mobile, fax, twitter,
+		var id, code, firstName, lastName, email, customerGroup, yearToDate, balance, loyaltyBalance, note, gender, dateOfBirth, companyName, phone, mobile, fax, twitter,
 			website, doNotEmail, physicalSuburb, physicalCity, physicalPostcode, physicalState, postalSuburb, postalCity, postalState, createdAt, postalPostcode, physicalAddress1, physicalAddress2, postalAddress1, postalAddress2, postalCountryID, customField1, customField2, customField3, customField4 string
 
 		// Moving before ID since the loop can continue
@@ -129,7 +135,7 @@ func cWriteFile(customers []vend.Customer) error {
 		if customer.ID != nil {
 			id = *customer.ID
 		}
-		
+
 		if customer.FirstName != nil {
 			firstName = *customer.FirstName
 		}
@@ -138,6 +144,9 @@ func cWriteFile(customers []vend.Customer) error {
 		}
 		if customer.Email != nil {
 			email = *customer.Email
+		}
+		if customer.GroupId != nil {
+			customerGroup = customerGroupMap[*customer.GroupId]
 		}
 		if customer.YearToDate != nil {
 			yearToDate = fmt.Sprintf("%f", *customer.YearToDate)
@@ -244,6 +253,7 @@ func cWriteFile(customers []vend.Customer) error {
 		record = append(record, firstName)
 		record = append(record, lastName)
 		record = append(record, email)
+		record = append(record, customerGroup)
 		record = append(record, yearToDate)
 		record = append(record, balance)
 		record = append(record, loyaltyBalance)

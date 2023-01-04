@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/jackharrisonsherlock/govend/vend"
 	"github.com/spf13/cobra"
+	"github.com/vend/govend/vend"
 )
 
 // Command config
@@ -81,12 +80,9 @@ func iWriteFile(products []vend.Product) error {
 	// Now loop through each product object and populate the CSV.
 	for _, product := range products {
 
-		// Ignore Vend placeholder image
-		if strings.HasPrefix(*product.ImageURL, "https://secure.vendhq.com/images/placeholder") {
-			continue
-		}
+		var images = product.Images
 
-		var sku, handle, imageURL string
+		var sku, handle string
 
 		if product.SKU != nil {
 			sku = *product.SKU
@@ -94,15 +90,16 @@ func iWriteFile(products []vend.Product) error {
 		if product.Handle != nil {
 			handle = *product.Handle
 		}
-		if product.ImageURL != nil {
-			imageURL = *product.ImageURL
+
+		// This will ignore no images since the array will be empty
+		for _, image := range images {
+			var record []string
+			record = append(record, sku)
+			record = append(record, handle)
+			record = append(record, *image.URL)
+			writer.Write(record)
 		}
 
-		var record []string
-		record = append(record, sku)
-		record = append(record, handle)
-		record = append(record, imageURL)
-		writer.Write(record)
 	}
 
 	writer.Flush()
