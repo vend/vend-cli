@@ -12,7 +12,7 @@ import (
 	"github.com/vend/govend/vend"
 )
 
-const version = "1.5 Beta: update-sale-user-id v2"
+const version = "1.5"
 
 // Variables for Client authentication details and flags
 var (
