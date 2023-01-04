@@ -37,6 +37,12 @@ type StoreCreditTransaction struct {
 	CreatedAt    *string `json:"created_at,omitempty"`
 }
 
+type StoreCreditCsv struct {
+	CustomerID   *string
+	CustomerCode *string
+	Amount       *float64
+}
+
 // StoreCredits gets all Store Credit data from a store.
 func (c *Client) StoreCredits() ([]StoreCredit, error) {
 
@@ -60,4 +66,15 @@ func (c *Client) StoreCredits() ([]StoreCredit, error) {
 	storecredits = append(storecredits, payload.Data...)
 
 	return storecredits, err
+}
+
+// CreditMap maps customer ids to store credit balances
+func CreditMap(storeCredits []StoreCredit) map[string]float64 {
+
+	CreditMap := make(map[string]float64)
+	for _, storeCredit := range storeCredits {
+		CreditMap[*storeCredit.CustomerID] = *storeCredit.Balance
+	}
+
+	return CreditMap
 }
