@@ -19,8 +19,7 @@ type Pagination struct {
 
 type Errors struct {
 	Error struct {
-		Global   []string `json:"global,omitempty"`
-		Messages []string `json:"messages,omitempty"`
+		Global []string `json:"global"`
 	} `json:"errors"`
 	Reference string `json:"reference"`
 }
