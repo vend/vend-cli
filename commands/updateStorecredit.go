@@ -22,10 +22,36 @@ var (
 		Use:   "update-storecredits",
 		Short: "Update Store Credits",
 		Long: fmt.Sprintf(`
-This tool requires the Store Credit CSV template, you can download it here: http://bit.ly/vendclitemplates
+update-storecredits will update the credit balances for a given list of customers
+
+It offers two modes:
+- "replace" [default]
+	replace mode REPLACES the current customer balance with a new, desired balance
+
+	csv format:
+	+-------------+---------------+-------------+
+	| customer_id | customer_code | new_balance |
+	+-------------+---------------+-------------+
+	| <id>        | <code>        |         0.0 |
+	+-------------+---------------+-------------+
+
+- "adjust"
+	adjust will ADJUST the current customer balance by a given +/- amount. 
+	To add value specify a positive amount
+	To subtract value specify a negative amount
+
+	csv format:
+	+-------------+---------------+--------+
+	| customer_id | customer_code | amount |
+	+-------------+---------------+--------+
+	| <id>        | <code>        |    0.0 |
+	+-------------+---------------+--------+
+
+*Note: both modes must have the requisite headers. 
+However, values are only required in customer_id OR customer_code not both
 
 Example:
-%s`, color.GreenString("vendcli update-storecredits -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
+%s`, color.GreenString("vendcli update-storecredits -d DOMAINPREFIX -t TOKEN -f FILENAME.csv -m replace")),
 
 		Run: func(cmd *cobra.Command, args []string) {
 			updateStoreCredit()
@@ -38,7 +64,7 @@ func init() {
 	updateStorecreditCmd.Flags().StringVarP(&FilePath, "Filename", "f", "", "The name of your file: filename.csv")
 	updateStorecreditCmd.MarkFlagRequired("Filename")
 
-	updateStorecreditCmd.Flags().StringVarP(&submitMode, "mode", "m", "replace", "Submission Mode: Options ('replace', 'adjust')")
+	updateStorecreditCmd.Flags().StringVarP(&submitMode, "mode", "m", "replace", "the method used for updating: replace, adjust")
 
 	rootCmd.AddCommand(updateStorecreditCmd)
 }
