@@ -6,11 +6,13 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"github.com/jackharrisonsherlock/govend/vend"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/vend/govend/vend"
 )
+
+const version = "1.5"
 
 // Variables for Client authentication details and flags
 var (
@@ -28,7 +30,8 @@ var (
 
 // Command Config
 var rootCmd = &cobra.Command{
-	Use: "vendcli",
+	Use:     "vendcli",
+	Version: version,
 	Short: fmt.Sprintf(`
 %s`, logo)}
 
