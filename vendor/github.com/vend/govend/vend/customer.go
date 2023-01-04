@@ -115,3 +115,14 @@ func (c *Client) CustomerGroups() (map[string]string, error) {
 	return CustomerGroupMap, err
 
 }
+
+// CustomerMap maps customer codes to customer ids
+func CustomerMap(customers []Customer) map[string]string {
+
+	CustomerMap := make(map[string]string)
+	for _, customer := range customers {
+		CustomerMap[*customer.Code] = *customer.ID
+	}
+
+	return CustomerMap
+}

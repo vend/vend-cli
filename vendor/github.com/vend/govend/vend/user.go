@@ -21,6 +21,7 @@ type User struct {
 	DisplayName      *string `json:"display_name,omitempty"`
 	AccountType      *string `json:"account_type,omitempty"`
 	Email            *string `json:"email,omitempty"`
+	IsPrimaryUser    *bool   `json:"is_primary_user,omitempty"`
 	RestrictedOutlet *string `json:"restricted_outlet_id,omitempty"`
 	CreatedAt        *string `json:"created_at,omitempty"`
 	DeletedAt        *string `json:"deleted_at,omitempty"`

@@ -9,13 +9,14 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.3.0
-	github.com/vend/govend v0.0.0-20221227032601-8c1cec5f7757
+	github.com/vend/govend v0.0.0-20230102233450-7aa1871d7b9c
 	github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.1 // indirect
