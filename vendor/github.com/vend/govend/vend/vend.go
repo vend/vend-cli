@@ -4,6 +4,7 @@ package vend
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -19,6 +20,21 @@ type Client struct {
 	Token        string
 	DomainPrefix string
 	TimeZone     string
+}
+
+// Exit is for exiting gracefully when using panic
+type Exit struct{ Code int }
+
+// we want to use panic instead of fatal: https://github.com/vend/go-guidance/pull/4
+// but we don't need stacktrace for expected exits
+func SupressStackTrace() {
+	if r := recover(); r != nil {
+		if exit, ok := r.(Exit); ok {
+			fmt.Println("vendcli exited because an error occured")
+			os.Exit(exit.Code)
+		}
+		panic(r) // not an Exit, bubble up
+	}
 }
 
 // NewClient is called to pass authentication details to the manager.
@@ -70,11 +86,15 @@ func (c *Client) Do(req *http.Request) ([]byte, error) {
 	}
 
 	defer resp.Body.Close()
-	ResponseCheck(resp.StatusCode)
+
 	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("\nError while reading response body: %s\n", err)
 		return nil, err
+	}
+
+	if !ResponseCheck(resp.StatusCode) {
+		err = errors.New(string(responseBody))
 	}
 
 	return responseBody, err
@@ -139,12 +159,13 @@ func ResponseCheck(statusCode int) bool {
 	switch {
 	case statusCode < 300:
 		return true
+	case statusCode == 400:
+		fmt.Printf("\nBad Request")
 	case statusCode == 401:
-		fmt.Printf("\nAccess denied - check API Token. Status: %d", statusCode)
-		os.Exit(0)
+		fmt.Printf("\nAccess denied - check API Token. Status: %d\n", statusCode)
+		panic(Exit{1})
 	case statusCode == 404:
 		fmt.Printf("\nURL not found - Status: %d", statusCode)
-		os.Exit(0)
 	case statusCode == 429:
 		fmt.Printf("\nRate limited by the Vend API :S Status: %d", statusCode)
 	case statusCode >= 500:
