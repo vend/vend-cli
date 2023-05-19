@@ -44,7 +44,8 @@ func loyaltyAdjustment() {
 	fmt.Println("\nReading Loyalty Adjustment CSV...")
 	loyaltyAdjustments, err := readLoyaltyAdjustmentCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Couldnt read Loyalty Adjustment CSV file,  %s", err)
+		log.Printf("Couldnt read Loyalty Adjustment CSV file,  %s", err)
+		panic(vend.Exit{1})
 	}
 
 	// Posting Adjustments to Vend
@@ -90,8 +91,10 @@ func readLoyaltyAdjustmentCSV(filePath string) ([]vend.Customer, error) {
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
 			fmt.Println("Found error in header rows.")
-			log.Fatalf("No header match for: %s Instead got: %s.",
+			log.Printf("No header match for: %s Instead got: %s.",
 				string(headers[i]), string(headerRow[i]))
+			panic(vend.Exit{1})
+
 		}
 	}
 

@@ -44,13 +44,15 @@ func importSuppliers() {
 	fmt.Println("\nReading Supplier CSV...")
 	suppliers, err := readSupplierCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Couldnt read Supplier CSV file, %s", err)
+		log.Printf("Couldnt read Supplier CSV file, %s", err)
+		panic(vend.Exit{1})
 	}
 
 	// Post Suppliers to Vend
 	err = postSuppliers(suppliers)
 	if err != nil {
-		log.Fatalf("Failed to post Suppliers, %s", err)
+		log.Printf("Failed to post Suppliers, %s", err)
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))
@@ -85,8 +87,10 @@ func readSupplierCSV(filePath string) ([]vend.SupplierBase, error) {
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
 			fmt.Println("Found error in header rows.")
-			log.Fatalf("No header match for: %s Instead got: %s.",
+			log.Printf("No header match for: %s Instead got: %s.",
 				string(headers[i]), string(headerRow[i]))
+			panic(vend.Exit{1})
+
 		}
 	}
 

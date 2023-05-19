@@ -63,20 +63,20 @@ func getAllSales() {
 	_, err := time.Parse(layout, dateFrom)
 	if err != nil {
 		fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
-		os.Exit(1)
+		panic(vend.Exit{1})
 	}
 
 	_, err = time.Parse(layout, dateTo)
 	if err != nil {
 		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
-		os.Exit(1)
+		panic(vend.Exit{1})
 	}
 
 	// prevent further processing by checking provided timezone to be valid
 	_, err = getUtcTime(dateTo+"T00:00:00Z", timeZone)
 	if err != nil {
 		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		panic(vend.Exit{1})
 	}
 
 	// Pull data from Vend
@@ -85,7 +85,8 @@ func getAllSales() {
 	// Get outlets first to check provided outlet first before expensive sales pull
 	outlets, _, err := vc.Outlets()
 	if err != nil {
-		log.Fatalf(color.RedString("Failed to get outlets: %v", err))
+		log.Printf(color.RedString("Failed to get outlets: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	// lookup outlet name by id
@@ -114,31 +115,36 @@ func getAllSales() {
 	// Get registers
 	registers, err := vc.Registers()
 	if err != nil {
-		log.Fatalf("Failed to get registers: %v", err)
+		log.Printf("Failed to get registers: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get users.
 	users, err := vc.Users()
 	if err != nil {
-		log.Fatalf("Failed to get users: %v", err)
+		log.Printf("Failed to get users: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get customers.
 	customers, err := vc.Customers()
 	if err != nil {
-		log.Fatalf("Failed to get customers: %v", err)
+		log.Printf("Failed to get customers: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get Customer Groups.
 	customerGroupMap, err := vc.CustomerGroups()
 	if err != nil {
-		log.Fatalf("Failed retrieving customer groups from Vend %v", err)
+		log.Printf("Failed retrieving customer groups from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get products.
 	products, _, err := vc.Products()
 	if err != nil {
-		log.Fatalf("Failed to get products: %v", err)
+		log.Printf("Failed to get products: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	fmt.Printf("\nFiltering sales by outlet and date range...\n")
@@ -163,7 +169,8 @@ func getAllSales() {
 			// Create template report to be written to.
 			file, err := createReport(vc.DomainPrefix, outlet)
 			if err != nil {
-				log.Fatalf("Failed creating template CSV: %v", err)
+				log.Printf("Failed creating template CSV: %v", err)
+				panic(vend.Exit{1})
 			}
 			defer file.Close()
 
@@ -312,7 +319,8 @@ func createReport(domainPrefix string, outlet string) (*os.File, error) {
 	fileName := fmt.Sprintf("%s_%s_sales_history_%v.csv", DomainPrefix, outlet, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Fatalf("Error creating CSV file: %s", err)
+		log.Printf("Error creating CSV file: %s", err)
+		panic(vend.Exit{1})
 	}
 
 	// Start CSV writer.
