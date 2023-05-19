@@ -39,14 +39,16 @@ func getAllImages() {
 	fmt.Println("\nRetrieving Images from Vend...")
 	images, _, err := vc.Products()
 	if err != nil {
-		log.Fatalf(color.RedString("Failed while retrieving images: %v", err))
+		log.Printf(color.RedString("Failed while retrieving images: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	// Write to CSV
 	fmt.Println("Writing images to CSV file...")
 	err = iWriteFile(images)
 	if err != nil {
-		log.Fatalf(color.RedString("Failed while writing images to CSV: %v", err))
+		log.Printf(color.RedString("Failed while writing images to CSV: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))
@@ -59,7 +61,8 @@ func iWriteFile(products []vend.Product) error {
 	fileName := fmt.Sprintf("%s_image_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Fatalf("Failed to create CSV: %v", err)
+		log.Printf("Failed to create CSV: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Ensure the file is closed at the end.

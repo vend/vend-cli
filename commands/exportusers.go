@@ -39,14 +39,16 @@ func getAllUsers() {
 	fmt.Println("\nRetrieving Users from Vend...")
 	users, err := vc.Users()
 	if err != nil {
-		log.Fatalf("Failed retrieving Users from Vend %v", err)
+		log.Printf("Failed retrieving Users from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Write Users to CSV
 	fmt.Println("Writing Users to CSV file...")
 	err = uWriteFile(users)
 	if err != nil {
-		log.Fatalf("Failed writing Users to CSV: %v", err)
+		log.Printf("Failed writing Users to CSV: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nExported %v Users\n", len(users)))

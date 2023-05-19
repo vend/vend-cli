@@ -42,26 +42,30 @@ func getAllProducts() {
 	fmt.Println("\nRetrieving Products...")
 	products, _, err := vc.Products()
 	if err != nil {
-		log.Fatalf("Failed retrieving products from Vend %v", err)
+		log.Printf("Failed retrieving products from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 	catalogStats.TotalInventory = int64(len(products))
 
 	// Get Outlets
 	outlets, outletsMap, err := vc.Outlets()
 	if err != nil {
-		log.Fatalf("Failed retrieving outlets from Vend %v", err)
+		log.Printf("Failed retrieving outlets from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get Outlet Taxes
 	outletTaxes, err := vc.OutletTaxes()
 	if err != nil {
-		log.Fatalf("Failed retrieving outlet taxes from Vend %v", err)
+		log.Printf("Failed retrieving outlet taxes from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get Taxes
 	_, taxMaps, err := vc.Taxes()
 	if err != nil {
-		log.Fatalf("Failed retrieving taxes from Vend %v", err)
+		log.Printf("Failed retrieving taxes from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get Inventory
@@ -84,7 +88,8 @@ func getAllProducts() {
 	fmt.Printf("Writing products to CSV file...\n")
 	err = productsWriteFile(products, outlets, outletsMap, recordsMap, outletTaxesMap, tagsMap)
 	if err != nil {
-		log.Fatalf(color.RedString("Failed writing products to CSV: %v", err))
+		log.Printf(color.RedString("Failed writing products to CSV: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	// Print happy message, and then display catalog stats
