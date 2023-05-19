@@ -41,7 +41,8 @@ func deleteProducts() {
 	fmt.Println("\nReading CSV...")
 	ids, err := readCSV(FilePath)
 	if err != nil {
-		log.Fatalf(color.RedString("Failed to get ids from the file: %s", FilePath))
+		log.Printf(color.RedString("Failed to get ids from the file: %s", FilePath))
+		panic(vend.Exit{1})
 	}
 
 	// Make the requests

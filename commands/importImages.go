@@ -55,8 +55,8 @@ func importImages(FilePath string) {
 	fmt.Println("\nReading products from CSV file...")
 	productsFromCSV, err := ReadImageCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Error reading CSV file")
-
+		log.Printf("Error reading CSV file")
+		panic(vend.Exit{1})
 	}
 
 	// Get all products from Vend.
@@ -282,7 +282,7 @@ func urlGet(url string) ([]byte, error) {
 	// Doing the request.
 	res, err := client.Get(url)
 	if err != nil {
-		log.Fatalf("Error performing request")
+		log.Printf("Error performing request")
 		return nil, err
 	}
 	// Make sure response body is closed at end.
@@ -341,8 +341,8 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 		// Copying image binary to form file.
 		_, err = io.Copy(part, file)
 		if err != nil {
-			log.Fatalf("Error copying file for requst body: %s", err)
-			return err
+			log.Printf("Error copying file for requst body: %s", err)
+			panic(vend.Exit{1})
 		}
 
 		err = writer.Close()
@@ -407,7 +407,7 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 		err = json.Unmarshal(resBody, &response)
 		if err != nil {
 			fmt.Println("error sourcing image - please check the image URL. Image links must be a direct link to the image.")
-			os.Exit(1)
+			panic(vend.Exit{1})
 			return err
 		}
 
