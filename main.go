@@ -1,7 +1,11 @@
 package main
 
-import cmd "github.com/vend/vend-cli/commands"
+import (
+	"github.com/vend/govend/vend"
+	cmd "github.com/vend/vend-cli/commands"
+)
 
 func main() {
+	defer vend.SupressStackTrace()
 	cmd.Execute()
 }

@@ -39,14 +39,16 @@ func getGiftCards() {
 	fmt.Println("\nRetrieving Gift Cards from Vend...")
 	giftCards, err := vc.GiftCards()
 	if err != nil {
-		log.Fatalf(color.RedString("Failed while retrieving Gift Cards: %v", err))
+		log.Printf(color.RedString("Failed while retrieving Gift Cards: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	// Write Gift Cards to CSV
 	fmt.Println("Writing Gift Cards to CSV file...")
 	err = gcWriterFile(giftCards)
 	if err != nil {
-		log.Fatalf(color.RedString("Failed while writing Gift Cards to CSV: %v", err))
+		log.Printf(color.RedString("Failed while writing Gift Cards to CSV: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nExported %v Gift Cards 🎉\n", len(giftCards)))
@@ -59,7 +61,8 @@ func gcWriterFile(giftCards []vend.GiftCard) error {
 	fileName := fmt.Sprintf("%s_giftcard_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Fatalf(color.RedString("Failed to create CSV: %v", err))
+		log.Printf(color.RedString("Failed to create CSV: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	// Ensure the file is closed at the end.
