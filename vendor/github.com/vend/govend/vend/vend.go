@@ -74,12 +74,26 @@ func (c *Client) Do(req *http.Request) ([]byte, error) {
 	var err error
 	for {
 		resp, err = client.Do(req)
+		fmt.Println(resp.StatusCode)
 		if err != nil {
 			fmt.Printf("\nError performing request: %s", err)
 			// Delays between attempts will be exponentially longer each time.
 			attempt++
 			delay := BackoffDuration(attempt)
 			time.Sleep(delay)
+			// if we're rate limited, rest for the amount specified in the retry-after header (or 30 seconds)
+		} else if resp.StatusCode == 429 {
+			fmt.Println("Rate limited by the Vend API")
+
+			retryHeader, err := getRetryHeader(resp.Header)
+			if err != nil {
+				fmt.Println(err, " unsure when rate limit will be lifted, trying again in 30 seconds..")
+				time.Sleep(time.Second * 30)
+				continue
+			}
+			waitTime := getWaitTime(retryHeader)
+			fmt.Printf("taking a break for %f seconds..\n", waitTime.Seconds())
+			time.Sleep(waitTime)
 		} else {
 			break
 		}
@@ -98,6 +112,31 @@ func (c *Client) Do(req *http.Request) ([]byte, error) {
 	}
 
 	return responseBody, err
+}
+
+// getWaitTime compares the time in retry-after header to current and returns the diff
+func getWaitTime(retryAfterHeader string) time.Duration {
+	// convert header str to time.Time format
+	layout := "Mon, 02 Jan 2006 15:04:05 MST" // RFC1123
+	currentTime := time.Now()
+	retryTime, err := time.Parse(layout, retryAfterHeader)
+
+	// if there is an error parsing header default to 30 second wait time
+	if err != nil {
+		return 30 * time.Second
+	} else {
+		// return diff between retry time and current time
+		return retryTime.Sub(currentTime)
+	}
+}
+
+// getRetryHeader gets the date string in RFC1123 from the retry-after header
+func getRetryHeader(h http.Header) (string, error) {
+	if value, ok := h["Retry-After"]; ok {
+		return value[0], nil
+	} else {
+		return "", errors.New("no retry header included")
+	}
 }
 
 func (c Client) MakeRequest(method, url string, body interface{}) ([]byte, error) {
