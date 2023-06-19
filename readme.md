@@ -28,24 +28,25 @@ Usage:
   vendcli [command]
 
 Available Commands:
-  delete-customers     Delete Customers
-  delete-products      Delete Products
-  export-auditlog      Export Audit Log
-  export-customers     Export Customers
-  export-giftcards     Export Gift Cards
-  export-images        Export Product Images
-  export-sales         Export Sales
-  export-storecredits  Export Store Credits
-  export-suppliers     Export Suppliers 
-  export-users         Export Users
-  help                 Help about any command
-  import-images        Import Product Images
-  import-product-codes Import Product Codes
-  import-storecredits  Import Store Credits
-  import-suppliers     Import Suppliers
-  loyalty-adjustment   Customer Loyalty Adjustment
-  void-giftcards       Void Gift Cards
-  void-sales           Void Sales
+  delete-customers                      Delete Customers
+  delete-products                       Delete Products
+  export-auditlog                       Export Audit Log
+  export-customers                      Export Customers
+  export-giftcards                      Export Gift Cards
+  export-images                         Export Product Images
+  export-sales                          Export Sales
+  export-storecredits                   Export Store Credits
+  export-suppliers                      Export Suppliers 
+  export-users                          Export Users
+  fix-products-variant-to-standard      Convert variant product to standard
+  help                                  Help about any command
+  import-images                         Import Product Images
+  import-product-codes                  Import Product Codes
+  import-storecredits                   Import Store Credits
+  import-suppliers                      Import Suppliers
+  loyalty-adjustment                    Customer Loyalty Adjustment
+  void-giftcards                        Void Gift Cards
+  void-sales                            Void Sales
 
 Flags:
   -d, --Domain string   The Vend store name (prefix in xxxx.vendhq.com)
@@ -68,6 +69,7 @@ Use "vendcli [command] --help" for more information about a command.
 - Export Suppliers
 - Export Audit Log
 - Export Images
+- Fix Products - Converting variant to standard
 - Import Images
 - Import Product Codes
 - Import Suppliers
@@ -119,6 +121,10 @@ When running a command you need to pass the flags that specify the parameters fo
 #### Export Images
 
 	$ vendcli export-images -d domainprefix -t token
+
+#### Fix Products - Converting variant to standard
+
+	$ vendcli fix-products-variant-to-standard -d domainprefix -t TOKEN -f FILENAME.csv -r ''
 
 #### Import Images
 
