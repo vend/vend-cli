@@ -180,7 +180,10 @@ func ReadSaleUserCSV(FilePath string) ([]vend.SaleUserUpload, error) {
 	// Open our provided CSV file.
 	file, err := os.Open(FilePath)
 	if err != nil {
-		fmt.Printf("Could not read from CSV file")
+		errorMsg := `error opening csv file - please check you've specified the right file
+
+Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
+		fmt.Println(errorMsg, "\n")
 		return []vend.SaleUserUpload{}, err
 	}
 	// Make sure to close at end.

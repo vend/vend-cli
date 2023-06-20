@@ -2,19 +2,22 @@ package cmd
 
 import (
 	"bytes"
-	"os"
 	"fmt"
-	
+	"os"
+
+	"encoding/csv"
 	"io/ioutil"
 	"net/http"
-	"encoding/csv"
 )
 
 // loadRecordsFromCSV reads the content of a csv file and returns headers and records.
 func loadRecordsFromCSV(path string) ([]string, [][]string, error) {
 	raw, err := ioutil.ReadFile(path)
 	if err != nil {
-		fmt.Println("Could not read from CSV file")
+		errorMsg := `error opening csv file - please check you've specified the right file
+
+Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
+		fmt.Println(errorMsg, "\n")
 		return nil, nil, err
 	}
 	return readRecords(raw)
