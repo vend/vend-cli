@@ -71,8 +71,6 @@ func (c *Client) Do(req *http.Request) ([]byte, error) {
 	client := http.DefaultClient
 	var attempt int
 	var resp *http.Response
-	// initializing this to protect against a nil crash
-	resp.StatusCode = 0
 	var err error
 	for {
 		resp, err = client.Do(req)
