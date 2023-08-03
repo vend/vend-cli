@@ -71,12 +71,16 @@ func (c *Client) Do(req *http.Request) ([]byte, error) {
 	client := http.DefaultClient
 	var attempt int
 	var resp *http.Response
+	// initializing this to protect against a nil crash
+	resp.StatusCode = 0
 	var err error
 	for {
 		resp, err = client.Do(req)
-		fmt.Println(resp.StatusCode)
 		if err != nil {
-			fmt.Printf("\nError performing request: %s", err)
+			if resp.StatusCode > 0 {
+				fmt.Println("\nRecieved status code of: ", resp.StatusCode)
+			}
+			fmt.Println("Error performing request: ", err)
 			// Delays between attempts will be exponentially longer each time.
 			attempt++
 			delay := BackoffDuration(attempt)
