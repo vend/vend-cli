@@ -46,12 +46,15 @@ type StoreCreditCsv struct {
 // StoreCredits gets all Store Credit data from a store.
 func (c *Client) StoreCredits() ([]StoreCredit, error) {
 
+	// this endpoint does not support pagination.
+	// #TODO This limit should be adjusted if/ once that endpoint supports pagination
+	const storeCreditLimit = 1000000
 	storecredits := []StoreCredit{}
 
-	url := fmt.Sprintf("https://%v.vendhq.com/api/2.0/store_credits?page_size=1000", c.DomainPrefix)
+	url := fmt.Sprintf("https://%v.vendhq.com/api/2.0/store_credits?page_size=%d", c.DomainPrefix, storeCreditLimit)
 	data, err := c.MakeRequest("GET", url, nil)
 	if err != nil {
-		return []StoreCredit{}, fmt.Errorf("Failed to retrieve a page of data %v", err)
+		return []StoreCredit{}, fmt.Errorf("failed to retrieve a page of data %v", err)
 	}
 
 	payload := StoreCreditPayload{}
