@@ -66,56 +66,6 @@ func (c *Client) NewRequest(method, url string, body interface{}) (*http.Request
 	return req, nil
 }
 
-// Do request
-func (c *Client) Do(req *http.Request) ([]byte, error) {
-	client := http.DefaultClient
-	var attempt int
-	var resp *http.Response
-	var err error
-	for {
-		resp, err = client.Do(req)
-		if err != nil {
-			if resp.StatusCode > 0 {
-				fmt.Println("\nRecieved status code of: ", resp.StatusCode)
-			}
-			fmt.Println("Error performing request: ", err)
-			// Delays between attempts will be exponentially longer each time.
-			attempt++
-			delay := BackoffDuration(attempt)
-			time.Sleep(delay)
-			// if we're rate limited, rest for the amount specified in the retry-after header (or 30 seconds)
-		} else if resp.StatusCode == 429 {
-			fmt.Println("Rate limited by the Vend API")
-
-			retryHeader, err := getRetryHeader(resp.Header)
-			if err != nil {
-				fmt.Println(err, " unsure when rate limit will be lifted, trying again in 30 seconds..")
-				time.Sleep(time.Second * 30)
-				continue
-			}
-			waitTime := getWaitTime(retryHeader)
-			fmt.Printf("taking a break for %f seconds..\n", waitTime.Seconds())
-			time.Sleep(waitTime)
-		} else {
-			break
-		}
-	}
-
-	defer resp.Body.Close()
-
-	responseBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("\nError while reading response body: %s\n", err)
-		return nil, err
-	}
-
-	if !ResponseCheck(resp.StatusCode) {
-		err = errors.New(string(responseBody))
-	}
-
-	return responseBody, err
-}
-
 // getWaitTime compares the time in retry-after header to current and returns the diff
 func getWaitTime(retryAfterHeader string) time.Duration {
 	// convert header str to time.Time format
@@ -141,18 +91,76 @@ func getRetryHeader(h http.Header) (string, error) {
 	}
 }
 
+// parses the response and checks for errors
+func parseResponseBody(resp *http.Response) ([]byte, error) {
+
+	defer resp.Body.Close()
+
+	responseBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("\nError while reading response body: %s\n", err)
+		return nil, err
+	}
+
+	if !ResponseCheck(resp.StatusCode) {
+		err = errors.New(string(responseBody))
+	}
+
+	return responseBody, err
+}
+
 func (c Client) MakeRequest(method, url string, body interface{}) ([]byte, error) {
-	req, err := c.NewRequest(method, url, body)
-	if err != nil {
-		return nil, err
+	var attempt int
+	client := http.DefaultClient
+	var resp *http.Response
+	var err error
+	ratelimited := false
+
+	for {
+		req, err := c.NewRequest(method, url, body)
+		if err != nil {
+			return nil, err
+		}
+
+		resp, err = client.Do(req)
+		if err != nil {
+			fmt.Println("Error performing request: ", err)
+			// Delays between attempts will be exponentially longer each time.
+			attempt++
+			delay := BackoffDuration(attempt)
+			time.Sleep(delay)
+
+			// if we're rate limited, rest for the amount specified in the retry-after header (or 30 seconds)
+		} else if resp.StatusCode == 429 {
+			fmt.Println("Rate limited by the Vend API")
+
+			retryHeader, err := getRetryHeader(resp.Header)
+			if err != nil {
+				fmt.Println(err, " unsure when rate limit will be lifted, trying again in 30 seconds..")
+				time.Sleep(time.Second * 30)
+				continue
+			}
+			waitTime := getWaitTime(retryHeader)
+			fmt.Printf("taking a break for %f seconds..\n", waitTime.Seconds())
+			time.Sleep(waitTime)
+			fmt.Printf("alright, naps over: trying again... ")
+			ratelimited = true
+		} else {
+			if ratelimited {
+				println("Success!\n")
+				ratelimited = false
+			}
+			break
+		}
+
 	}
 
-	res, err := c.Do(req)
+	responseBody, err := parseResponseBody(resp)
 	if err != nil {
-		return nil, err
+		return responseBody, err
 	}
 
-	return res, nil
+	return responseBody, nil
 }
 
 // ResourcePage gets a single page of data from a 2.0 API resource using a version attribute.
@@ -160,6 +168,10 @@ func (c *Client) ResourcePage(version int64, method, resource string) ([]byte, i
 
 	url := c.urlFactory(version, "", resource)
 	body, err := c.MakeRequest(method, url, nil)
+	if err != nil {
+		fmt.Printf("\nError making request: %s", err)
+		return nil, 0, err
+	}
 	response := Payload{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
@@ -177,6 +189,10 @@ func (c *Client) ResourcePageFlake(id, method, resource string) ([]byte, string,
 	// Build the URL for the resource page.
 	url := c.urlFactoryFlake(id, resource)
 	body, err := c.MakeRequest(method, url, nil)
+	if err != nil {
+		fmt.Printf("\nError making request: %s", err)
+		return nil, "", err
+	}
 	payload := map[string][]interface{}{}
 	err = json.Unmarshal(body, &payload)
 	if err != nil {
