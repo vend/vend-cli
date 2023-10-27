@@ -28,24 +28,25 @@ Usage:
   vendcli [command]
 
 Available Commands:
-  delete-customers     Delete Customers
-  delete-products      Delete Products
-  export-auditlog      Export Audit Log
-  export-customers     Export Customers
-  export-giftcards     Export Gift Cards
-  export-images        Export Product Images
-  export-sales         Export Sales
-  export-storecredits  Export Store Credits
-  export-suppliers     Export Suppliers 
-  export-users         Export Users
-  help                 Help about any command
-  import-images        Import Product Images
-  import-product-codes Import Product Codes
-  import-storecredits  Import Store Credits
-  import-suppliers     Import Suppliers
-  loyalty-adjustment   Customer Loyalty Adjustment
-  void-giftcards       Void Gift Cards
-  void-sales           Void Sales
+  delete-customers                      Delete Customers
+  delete-products                       Delete Products
+  export-auditlog                       Export Audit Log
+  export-customers                      Export Customers
+  export-giftcards                      Export Gift Cards
+  export-images                         Export Product Images
+  export-sales                          Export Sales
+  export-storecredits                   Export Store Credits
+  export-suppliers                      Export Suppliers 
+  export-users                          Export Users
+  fix-products-variant-to-standard      Convert variant product to standard
+  help                                  Help about any command
+  import-images                         Import Product Images
+  import-product-codes                  Import Product Codes
+  import-storecredits                   Import Store Credits
+  import-suppliers                      Import Suppliers
+  loyalty-adjustment                    Customer Loyalty Adjustment
+  void-giftcards                        Void Gift Cards
+  void-sales                            Void Sales
 
 Flags:
   -d, --Domain string   The Vend store name (prefix in xxxx.vendhq.com)
@@ -54,7 +55,21 @@ Flags:
 
 Use "vendcli [command] --help" for more information about a command.
 ```
+## Build
+To build a version to distribute to others, use the following commands:
+### Mac
+```
+env GOOS=darwin GOARCH=amd64 go build -v -o vendcli -ldflags="-s -w -X main.version=1.6"  main.go
+```
+### PC
+```
+env GOOS=windows GOARCH=amd64 go build -v -o vendcli.exe -tags timetzdata -ldflags="-s -w -X main.version=1.6"  main.go
+```
+Note the "timetzdata" tag in the windows build - windows does not offer tzdata like unix computers so this is needed for the export-sales cmd to work
 
+Change the version specified main.version="" as relevant. Additionally change the "version" string contained in /commands/root.go.
+
+For daily / beta builds set the string to "Version X.X Mon DD YYYY" so that users can distinguish between versions
 
 ## Commands
 
@@ -68,6 +83,7 @@ Use "vendcli [command] --help" for more information about a command.
 - Export Suppliers
 - Export Audit Log
 - Export Images
+- Fix Products - Converting variant to standard
 - Import Images
 - Import Product Codes
 - Import Suppliers
@@ -119,6 +135,10 @@ When running a command you need to pass the flags that specify the parameters fo
 #### Export Images
 
 	$ vendcli export-images -d domainprefix -t token
+
+#### Fix Products - Converting variant to standard
+
+	$ vendcli fix-products-variant-to-standard -d domainprefix -t TOKEN -f FILENAME.csv -r ''
 
 #### Import Images
 

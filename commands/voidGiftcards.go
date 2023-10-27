@@ -45,7 +45,8 @@ func voidGiftCards() {
 	fmt.Printf("\nReading Gift Card CSV\n")
 	ids, err := readGiftCardCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Failed to get gift card numbers from the file: %s", FilePath)
+		log.Printf("Failed to get gift card numbers from the file: %s", FilePath)
+		panic(vend.Exit{1})
 	}
 
 	// Voiding Gift Cards
@@ -65,7 +66,10 @@ func readGiftCardCSV(FilePath string) ([]string, error) {
 	// Open our provided CSV file.
 	file, err := os.Open(FilePath)
 	if err != nil {
-		fmt.Println("Could not read from CSV file")
+		errorMsg := `error opening csv file - please check you've specified the right file
+
+Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
+		fmt.Println(errorMsg, "\n")
 		return nil, err
 	}
 	// Make sure to close at end.
@@ -81,8 +85,9 @@ func readGiftCardCSV(FilePath string) ([]string, error) {
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
 			fmt.Println("Found error in header rows.")
-			log.Fatalf("No header match for: %s Instead got: %s.",
+			log.Printf("No header match for: %s Instead got: %s.",
 				string(headers[i]), string(headerRow[i]))
+			panic(vend.Exit{1})
 		}
 	}
 

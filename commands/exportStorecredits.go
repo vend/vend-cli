@@ -39,13 +39,15 @@ func getStoreCredits() {
 	fmt.Println("\nRetrieving Store Credits from Vend...")
 	storeCredits, err := vc.StoreCredits()
 	if err != nil {
-		log.Fatalf("Failed while retrieving store credits: %v", err)
+		log.Printf("Failed while retrieving store credits: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// // Find Customer ID from Customer Code
 	// customerCode, err := getCustomerCode(storeCredits.CustomerID)
 	// if err != nil {
-	// 	log.Fatalf("Failed trying to find customer code", err)
+	// 	log.Printf("Failed trying to find customer code", err)
+
 	// }
 	// storeCredits.CustomerCode = &customerCode
 
@@ -53,7 +55,8 @@ func getStoreCredits() {
 	fmt.Println("Writing Store Credits to CSV file...")
 	err = scWriterFile(storeCredits)
 	if err != nil {
-		log.Fatalf("Failed while writing Store Credits to CSV: %v", err)
+		log.Printf("Failed while writing Store Credits to CSV: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nExported %v Store Credits\n", len(storeCredits)))
@@ -66,7 +69,8 @@ func scWriterFile(sc []vend.StoreCredit) error {
 	fileName := fmt.Sprintf("%s_storecredit_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Fatalf("Failed to create CSV: %v", err)
+		log.Printf("Failed to create CSV: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Ensure the file is closed at the end.

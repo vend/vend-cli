@@ -63,20 +63,20 @@ func getAllSales() {
 	_, err := time.Parse(layout, dateFrom)
 	if err != nil {
 		fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
-		os.Exit(1)
+		panic(vend.Exit{1})
 	}
 
 	_, err = time.Parse(layout, dateTo)
 	if err != nil {
 		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
-		os.Exit(1)
+		panic(vend.Exit{1})
 	}
 
 	// prevent further processing by checking provided timezone to be valid
 	_, err = getUtcTime(dateTo+"T00:00:00Z", timeZone)
 	if err != nil {
 		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		panic(vend.Exit{1})
 	}
 
 	// Pull data from Vend
@@ -85,7 +85,8 @@ func getAllSales() {
 	// Get outlets first to check provided outlet first before expensive sales pull
 	outlets, _, err := vc.Outlets()
 	if err != nil {
-		log.Fatalf(color.RedString("Failed to get outlets: %v", err))
+		log.Printf(color.RedString("Failed to get outlets: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	// lookup outlet name by id
@@ -114,31 +115,36 @@ func getAllSales() {
 	// Get registers
 	registers, err := vc.Registers()
 	if err != nil {
-		log.Fatalf("Failed to get registers: %v", err)
+		log.Printf("Failed to get registers: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get users.
 	users, err := vc.Users()
 	if err != nil {
-		log.Fatalf("Failed to get users: %v", err)
+		log.Printf("Failed to get users: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get customers.
 	customers, err := vc.Customers()
 	if err != nil {
-		log.Fatalf("Failed to get customers: %v", err)
+		log.Printf("Failed to get customers: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get Customer Groups.
 	customerGroupMap, err := vc.CustomerGroups()
 	if err != nil {
-		log.Fatalf("Failed retrieving customer groups from Vend %v", err)
+		log.Printf("Failed retrieving customer groups from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get products.
 	products, _, err := vc.Products()
 	if err != nil {
-		log.Fatalf("Failed to get products: %v", err)
+		log.Printf("Failed to get products: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	fmt.Printf("\nFiltering sales by outlet and date range...\n")
@@ -163,7 +169,8 @@ func getAllSales() {
 			// Create template report to be written to.
 			file, err := createReport(vc.DomainPrefix, outlet)
 			if err != nil {
-				log.Fatalf("Failed creating template CSV: %v", err)
+				log.Printf("Failed creating template CSV: %v", err)
+				panic(vend.Exit{1})
 			}
 			defer file.Close()
 
@@ -312,7 +319,8 @@ func createReport(domainPrefix string, outlet string) (*os.File, error) {
 	fileName := fmt.Sprintf("%s_%s_sales_history_%v.csv", DomainPrefix, outlet, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Fatalf("Error creating CSV file: %s", err)
+		log.Printf("Error creating CSV file: %s", err)
+		panic(vend.Exit{1})
 	}
 
 	// Start CSV writer.
@@ -575,35 +583,35 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 
 			// Write product records for given sale to file.
 			productRecord := record
-			productRecord[0] = dateStr      // Sale Date
-			productRecord[1] = timeStr      // Sale Time
-			productRecord[2] = ""           // Invoice Number
-			productRecord[3] = "Sale Line"  // Line Type
-			productRecord[4] = ""           // Customer Code
-			productRecord[5] = ""           // Customer Name
-			productRecord[6] = ""           // Customer Email
-			productRecord[7] = ""           // Customer Group
-			productRecord[8] = ""           // Customer Postal Address 1
-			productRecord[9] = ""           // Customer Postal Address 2
-			productRecord[10] = ""          // Customer Postal City
-			productRecord[11] = ""          // Customer Postal State
-			productRecord[12] = ""          // Customer Postal PostCode
-			productRecord[13] = ""          // Customer Postal Country ID
-			productRecord[14] = ""          // TODO: line note from the product?
-			productRecord[15] = ""          // Marketing Opt in/out
-			productRecord[16] = quantity    // Quantity
-			productRecord[17] = price       // Subtotal
-			productRecord[18] = tax         // Sales Tax
-			productRecord[19] = discount    // Discount
-			productRecord[20] = loyalty     // Loyalty
-			productRecord[21] = total       // Total
-			productRecord[22] = ""          // Paid
-			productRecord[23] = productName // Details
-			productRecord[24] = ""          // Register
-			productRecord[25] = ""          // User
-			productRecord[26] = ""          // Status
-			productRecord[27] = productSKU  // Sku
-			// productRecord[19] = ""     // AccountCodeSale
+			productRecord[0] = dateStr       // Sale Date
+			productRecord[1] = timeStr       // Sale Time
+			productRecord[2] = invoiceNumber // Invoice Number
+			productRecord[3] = "Sale Line"   // Line Type
+			productRecord[4] = ""            // Customer Code
+			productRecord[5] = ""            // Customer Name
+			productRecord[6] = ""            // Customer Email
+			productRecord[7] = ""            // Customer Group
+			productRecord[8] = ""            // Customer Postal Address 1
+			productRecord[9] = ""            // Customer Postal Address 2
+			productRecord[10] = ""           // Customer Postal City
+			productRecord[11] = ""           // Customer Postal State
+			productRecord[12] = ""           // Customer Postal PostCode
+			productRecord[13] = ""           // Customer Postal Country ID
+			productRecord[14] = ""           // TODO: line note from the product?
+			productRecord[15] = ""           // Marketing Opt in/out
+			productRecord[16] = quantity     // Quantity
+			productRecord[17] = price        // Subtotal
+			productRecord[18] = tax          // Sales Tax
+			productRecord[19] = discount     // Discount
+			productRecord[20] = loyalty      // Loyalty
+			productRecord[21] = total        // Total
+			productRecord[22] = ""           // Paid
+			productRecord[23] = productName  // Details
+			productRecord[24] = ""           // Register
+			productRecord[25] = ""           // User
+			productRecord[26] = ""           // Status
+			productRecord[27] = productSKU   // Sku
+			// productRecord[19] = ""     //  AccountCodeSale
 			// productRecord[20] = "" // AccountCodePurchase
 			writer.Write(productRecord)
 		}
@@ -615,34 +623,34 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 			name := fmt.Sprintf("%s", *payment.Name)
 
 			paymentRecord := record
-			paymentRecord[0] = dateStr   // Sale Date
-			paymentRecord[1] = timeStr   // Sale Time
-			paymentRecord[2] = ""        // Invoice Number
-			paymentRecord[3] = "Payment" // Line Type
-			paymentRecord[4] = ""        // Customer Code
-			paymentRecord[5] = ""        // Customer Name
-			paymentRecord[6] = ""        // Customer Email
-			paymentRecord[7] = ""        // Customer Group
-			paymentRecord[8] = ""        // Customer Postal Address 1
-			paymentRecord[9] = ""        // Customer Postal Address 2
-			paymentRecord[10] = ""       // Customer Postal City
-			paymentRecord[11] = ""       // Customer Postal State
-			paymentRecord[12] = ""       // Customer Postal PostalCode
-			paymentRecord[13] = ""       // Customer Postal Country ID
-			paymentRecord[14] = ""       // Marketing Opt in/out
-			paymentRecord[15] = ""       // TODO: line note
-			paymentRecord[16] = ""       // Quantity
-			paymentRecord[17] = ""       // Subtotal
-			paymentRecord[18] = ""       // Sales Tax
-			paymentRecord[19] = ""       // Discount
-			paymentRecord[20] = ""       // Loyalty
-			paymentRecord[21] = ""       // Total
-			paymentRecord[22] = paid     // Paid
-			paymentRecord[23] = name     //  Details
-			paymentRecord[24] = ""       // Register
-			paymentRecord[25] = ""       // User
-			paymentRecord[26] = ""       // Status
-			paymentRecord[27] = ""       // Sku
+			paymentRecord[0] = dateStr       // Sale Date
+			paymentRecord[1] = timeStr       // Sale Time
+			paymentRecord[2] = invoiceNumber // Invoice Number
+			paymentRecord[3] = "Payment"     // Line Type
+			paymentRecord[4] = ""            // Customer Code
+			paymentRecord[5] = ""            // Customer Name
+			paymentRecord[6] = ""            // Customer Email
+			paymentRecord[7] = ""            // Customer Group
+			paymentRecord[8] = ""            // Customer Postal Address 1
+			paymentRecord[9] = ""            // Customer Postal Address 2
+			paymentRecord[10] = ""           // Customer Postal City
+			paymentRecord[11] = ""           // Customer Postal State
+			paymentRecord[12] = ""           // Customer Postal PostalCode
+			paymentRecord[13] = ""           // Customer Postal Country ID
+			paymentRecord[14] = ""           // Marketing Opt in/out
+			paymentRecord[15] = ""           // TODO: line note
+			paymentRecord[16] = ""           // Quantity
+			paymentRecord[17] = ""           // Subtotal
+			paymentRecord[18] = ""           // Sales Tax
+			paymentRecord[19] = ""           // Discount
+			paymentRecord[20] = ""           // Loyalty
+			paymentRecord[21] = ""           // Total
+			paymentRecord[22] = paid         // Paid
+			paymentRecord[23] = name         //  Details
+			paymentRecord[24] = ""           // Register
+			paymentRecord[25] = ""           // User
+			paymentRecord[26] = ""           // Status
+			paymentRecord[27] = ""           // Sku
 			// paymentRecord[19] = ""       // AccountCodeSale
 			// paymentRecord[20] = ""       // AccountCodePurchase
 

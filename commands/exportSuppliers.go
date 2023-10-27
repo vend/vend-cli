@@ -38,14 +38,16 @@ func getAllSuppliers() {
 	fmt.Println("\nRetrieving Suppliers from Vend...")
 	suppliers, err := vc.Suppliers()
 	if err != nil {
-		log.Fatalf("Failed while retrieving Suppliers: %v", err)
+		log.Printf("Failed while retrieving Suppliers: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Write Suppliers to CSV
 	fmt.Println("Writing Suppliers to CSV file...")
 	err = sWriteFile(suppliers)
 	if err != nil {
-		log.Fatalf("Failed while writing Suppliers to CSV: %v", err)
+		log.Printf("Failed while writing Suppliers to CSV: %v", err)
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))
@@ -58,7 +60,8 @@ func sWriteFile(suppliers []vend.SupplierBase) error {
 	fileName := fmt.Sprintf("%s_supplier_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Fatalf("Failed while creating CSV %v", err)
+		log.Printf("Failed while creating CSV %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Ensure the file is closed at the end.

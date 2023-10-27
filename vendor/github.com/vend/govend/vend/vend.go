@@ -4,6 +4,7 @@ package vend
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -19,6 +20,21 @@ type Client struct {
 	Token        string
 	DomainPrefix string
 	TimeZone     string
+}
+
+// Exit is for exiting gracefully when using panic
+type Exit struct{ Code int }
+
+// we want to use panic instead of fatal: https://github.com/vend/go-guidance/pull/4
+// but we don't need stacktrace for expected exits
+func SupressStackTrace() {
+	if r := recover(); r != nil {
+		if exit, ok := r.(Exit); ok {
+			fmt.Println("vendcli exited because an error occured")
+			os.Exit(exit.Code)
+		}
+		panic(r) // not an Exit, bubble up
+	}
 }
 
 // NewClient is called to pass authentication details to the manager.
@@ -50,48 +66,101 @@ func (c *Client) NewRequest(method, url string, body interface{}) (*http.Request
 	return req, nil
 }
 
-// Do request
-func (c *Client) Do(req *http.Request) ([]byte, error) {
-	client := http.DefaultClient
-	var attempt int
-	var resp *http.Response
-	var err error
-	for {
-		resp, err = client.Do(req)
-		if err != nil {
-			fmt.Printf("\nError performing request: %s", err)
-			// Delays between attempts will be exponentially longer each time.
-			attempt++
-			delay := BackoffDuration(attempt)
-			time.Sleep(delay)
-		} else {
-			break
-		}
+// getWaitTime compares the time in retry-after header to current and returns the diff
+func getWaitTime(retryAfterHeader string) time.Duration {
+	// convert header str to time.Time format
+	layout := "Mon, 02 Jan 2006 15:04:05 MST" // RFC1123
+	currentTime := time.Now()
+	retryTime, err := time.Parse(layout, retryAfterHeader)
+
+	// if there is an error parsing header default to 30 second wait time
+	if err != nil {
+		return 30 * time.Second
+	} else {
+		// return diff between retry time and current time
+		return retryTime.Sub(currentTime)
 	}
+}
+
+// getRetryHeader gets the date string in RFC1123 from the retry-after header
+func getRetryHeader(h http.Header) (string, error) {
+	if value, ok := h["Retry-After"]; ok {
+		return value[0], nil
+	} else {
+		return "", errors.New("no retry header included")
+	}
+}
+
+// parses the response and checks for errors
+func parseResponseBody(resp *http.Response) ([]byte, error) {
 
 	defer resp.Body.Close()
-	ResponseCheck(resp.StatusCode)
+
 	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("\nError while reading response body: %s\n", err)
 		return nil, err
 	}
 
+	if !ResponseCheck(resp.StatusCode) {
+		err = errors.New(string(responseBody))
+	}
+
 	return responseBody, err
 }
 
 func (c Client) MakeRequest(method, url string, body interface{}) ([]byte, error) {
-	req, err := c.NewRequest(method, url, body)
-	if err != nil {
-		return nil, err
+	var attempt int
+	client := http.DefaultClient
+	var resp *http.Response
+	var err error
+	ratelimited := false
+
+	for {
+		req, err := c.NewRequest(method, url, body)
+		if err != nil {
+			return nil, err
+		}
+
+		resp, err = client.Do(req)
+		if err != nil {
+			fmt.Println("Error performing request: ", err)
+			// Delays between attempts will be exponentially longer each time.
+			attempt++
+			delay := BackoffDuration(attempt)
+			time.Sleep(delay)
+
+			// if we're rate limited, rest for the amount specified in the retry-after header (or 30 seconds)
+		} else if resp.StatusCode == 429 {
+			fmt.Println("Rate limited by the Vend API")
+
+			retryHeader, err := getRetryHeader(resp.Header)
+			if err != nil {
+				fmt.Println(err, " unsure when rate limit will be lifted, trying again in 30 seconds..")
+				time.Sleep(time.Second * 30)
+				continue
+			}
+			waitTime := getWaitTime(retryHeader)
+			fmt.Printf("taking a break for %f seconds..\n", waitTime.Seconds())
+			time.Sleep(waitTime)
+			fmt.Printf("alright, naps over: trying again... ")
+			ratelimited = true
+		} else {
+			if ratelimited {
+				println("Success!\n")
+				ratelimited = false
+			}
+			break
+		}
+
 	}
 
-	res, err := c.Do(req)
+	responseBody, err := parseResponseBody(resp)
 	if err != nil {
-		return nil, err
+		return responseBody, err
 	}
 
-	return res, nil
+	return responseBody, nil
 }
 
 // ResourcePage gets a single page of data from a 2.0 API resource using a version attribute.
@@ -99,6 +168,10 @@ func (c *Client) ResourcePage(version int64, method, resource string) ([]byte, i
 
 	url := c.urlFactory(version, "", resource)
 	body, err := c.MakeRequest(method, url, nil)
+	if err != nil {
+		fmt.Printf("\nError making request: %s", err)
+		return nil, 0, err
+	}
 	response := Payload{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
@@ -116,6 +189,10 @@ func (c *Client) ResourcePageFlake(id, method, resource string) ([]byte, string,
 	// Build the URL for the resource page.
 	url := c.urlFactoryFlake(id, resource)
 	body, err := c.MakeRequest(method, url, nil)
+	if err != nil {
+		fmt.Printf("\nError making request: %s", err)
+		return nil, "", err
+	}
 	payload := map[string][]interface{}{}
 	err = json.Unmarshal(body, &payload)
 	if err != nil {
@@ -139,12 +216,13 @@ func ResponseCheck(statusCode int) bool {
 	switch {
 	case statusCode < 300:
 		return true
+	case statusCode == 400:
+		fmt.Printf("\nBad Request")
 	case statusCode == 401:
-		fmt.Printf("\nAccess denied - check API Token. Status: %d", statusCode)
-		os.Exit(0)
+		fmt.Printf("\nAccess denied - check API Token. Status: %d\n", statusCode)
+		panic(Exit{1})
 	case statusCode == 404:
 		fmt.Printf("\nURL not found - Status: %d", statusCode)
-		os.Exit(0)
 	case statusCode == 429:
 		fmt.Printf("\nRate limited by the Vend API :S Status: %d", statusCode)
 	case statusCode >= 500:
