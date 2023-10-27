@@ -55,7 +55,21 @@ Flags:
 
 Use "vendcli [command] --help" for more information about a command.
 ```
+## Build
+To build a version to distribute to others, use the following commands:
+### Mac
+```
+env GOOS=darwin GOARCH=amd64 go build -v -o vendcli -ldflags="-s -w -X main.version=1.6"  main.go
+```
+### PC
+```
+env GOOS=windows GOARCH=amd64 go build -v -o vendcli.exe -tags timetzdata -ldflags="-s -w -X main.version=1.6"  main.go
+```
+Note the "timetzdata" tag in the windows build - windows does not offer tzdata like unix computers so this is needed for the export-sales cmd to work
 
+Change the version specified main.version="" as relevant. Additionally change the "version" string contained in /commands/root.go.
+
+For daily / beta builds set the string to "Version X.X Mon DD YYYY" so that users can distinguish between versions
 
 ## Commands
 
