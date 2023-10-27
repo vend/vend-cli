@@ -44,13 +44,15 @@ func importSuppliers() {
 	fmt.Println("\nReading Supplier CSV...")
 	suppliers, err := readSupplierCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Couldnt read Supplier CSV file, %s", err)
+		log.Printf("Couldnt read Supplier CSV file, %s", err)
+		panic(vend.Exit{1})
 	}
 
 	// Post Suppliers to Vend
 	err = postSuppliers(suppliers)
 	if err != nil {
-		log.Fatalf("Failed to post Suppliers, %s", err)
+		log.Printf("Failed to post Suppliers, %s", err)
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))
@@ -69,7 +71,10 @@ func readSupplierCSV(filePath string) ([]vend.SupplierBase, error) {
 	// Open our provided CSV file.
 	file, err := os.Open(FilePath)
 	if err != nil {
-		fmt.Println("Could not read from CSV file")
+		errorMsg := `error opening csv file - please check you've specified the right file
+
+Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
+		fmt.Println(errorMsg, "\n")
 		return nil, err
 	}
 	// Make sure to close at end.
@@ -85,8 +90,10 @@ func readSupplierCSV(filePath string) ([]vend.SupplierBase, error) {
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
 			fmt.Println("Found error in header rows.")
-			log.Fatalf("No header match for: %s Instead got: %s.",
+			log.Printf("No header match for: %s Instead got: %s.",
 				string(headers[i]), string(headerRow[i]))
+			panic(vend.Exit{1})
+
 		}
 	}
 

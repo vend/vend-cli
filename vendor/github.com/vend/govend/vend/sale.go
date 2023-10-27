@@ -107,6 +107,12 @@ type Version struct {
 	Min int64 `json:"min"`
 }
 
+type erroredSalesSummary struct {
+	totalSales     int
+	oldestSaleDate string
+	oldestSaleTime time.Time
+}
+
 // Sales grabs all-time sales - version after 0
 func (c *Client) Sales() ([]Sale, error) {
 	return salesAfterVersion(0, c)
@@ -171,7 +177,8 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 	data := response.Data
 
 	// no sale
-	if len(data) == 0 {
+	// if there are no sales response.Data is a string with "[]". Since it is a string the len of "[]" is 2
+	if len(data) == 2 {
 		return 0, nil
 	}
 

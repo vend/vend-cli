@@ -12,7 +12,7 @@ import (
 	"github.com/vend/govend/vend"
 )
 
-const version = "1.5"
+const version = "1.6"
 
 // Variables for Client authentication details and flags
 var (
@@ -48,7 +48,7 @@ func init() {
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		panic(vend.Exit{1})
 	}
 }
 
@@ -62,7 +62,7 @@ func initConfig() {
 		home, err := homedir.Dir()
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(1)
+			panic(vend.Exit{1})
 		}
 
 		// Search config in home directory with name ".vend" (without extension).
@@ -84,7 +84,10 @@ func readCSV(FilePath string) ([]string, error) {
 	// Open our provided CSV file
 	file, err := os.Open(FilePath)
 	if err != nil {
-		fmt.Println("Could not read from CSV file")
+		errorMsg := `error opening csv file - please check you've specified the right file
+
+Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
+		fmt.Println(errorMsg, "\n")
 		return nil, err
 	}
 

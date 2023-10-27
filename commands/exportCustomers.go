@@ -39,19 +39,22 @@ func getAllCustomers() {
 	fmt.Println("\nRetrieving Customers from Vend...")
 	customers, err := vc.Customers()
 	if err != nil {
-		log.Fatalf("Failed retrieving customers from Vend %v", err)
+		log.Printf("Failed retrieving customers from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	customerGroupMap, err := vc.CustomerGroups()
 	if err != nil {
-		log.Fatalf("Failed retrieving customer groups from Vend %v", err)
+		log.Printf("Failed retrieving customer groups from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Write Customers to CSV
 	fmt.Println("Writing customers to CSV file...")
 	err = cWriteFile(customers, customerGroupMap)
 	if err != nil {
-		log.Fatalf(color.RedString("Failed writing customers to CSV: %v", err))
+		log.Printf(color.RedString("Failed writing customers to CSV: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nExported %v customers  🎉\n", len(customers)))

@@ -67,13 +67,15 @@ func importProductCodes() {
 	fmt.Println("Reading product codes CSV...")
 	productCodes, err := readProductCodesCSV(FilePath)
 	if err != nil {
-		log.Fatalf("Couldnt read Product Code CSV file, %s", err)
+		log.Printf("Couldnt read Product Code CSV file, %s", err)
+		panic(vend.Exit{1})
 	}
 
 	// Post Product Codes to Vend
 	err = postProductCodes(productCodes)
 	if err != nil {
-		log.Fatalf("Failed to post product codes, %s", err)
+		log.Printf("Failed to post product codes, %s", err)
+		panic(vend.Exit{1})
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))

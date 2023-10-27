@@ -42,26 +42,31 @@ func getAllProducts() {
 	fmt.Println("\nRetrieving Products...")
 	products, _, err := vc.Products()
 	if err != nil {
-		log.Fatalf("Failed retrieving products from Vend %v", err)
+		log.Printf("Failed retrieving products from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 	catalogStats.TotalInventory = int64(len(products))
+	maxSupplier := checkMaxSupplier(products)
 
 	// Get Outlets
 	outlets, outletsMap, err := vc.Outlets()
 	if err != nil {
-		log.Fatalf("Failed retrieving outlets from Vend %v", err)
+		log.Printf("Failed retrieving outlets from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get Outlet Taxes
 	outletTaxes, err := vc.OutletTaxes()
 	if err != nil {
-		log.Fatalf("Failed retrieving outlet taxes from Vend %v", err)
+		log.Printf("Failed retrieving outlet taxes from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get Taxes
 	_, taxMaps, err := vc.Taxes()
 	if err != nil {
-		log.Fatalf("Failed retrieving taxes from Vend %v", err)
+		log.Printf("Failed retrieving taxes from Vend %v", err)
+		panic(vend.Exit{1})
 	}
 
 	// Get Inventory
@@ -82,9 +87,10 @@ func getAllProducts() {
 
 	// Write Products to CSV
 	fmt.Printf("Writing products to CSV file...\n")
-	err = productsWriteFile(products, outlets, outletsMap, recordsMap, outletTaxesMap, tagsMap)
+	err = productsWriteFile(products, outlets, outletsMap, recordsMap, outletTaxesMap, tagsMap, maxSupplier)
 	if err != nil {
-		log.Fatalf(color.RedString("Failed writing products to CSV: %v", err))
+		log.Printf(color.RedString("Failed writing products to CSV: %v", err))
+		panic(vend.Exit{1})
 	}
 
 	// Print happy message, and then display catalog stats
@@ -96,7 +102,7 @@ func getAllProducts() {
 // Creates CSV file and then prints product info to it
 func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 	outletsMap map[string][]vend.Outlet, recordsMap map[string]map[string]vend.InventoryRecord,
-	outletTaxesMap map[string]map[string]string, tagsMap map[string]string) error {
+	outletTaxesMap map[string]map[string]string, tagsMap map[string]string, maxSupplier int) error {
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_product_export_%v.csv", DomainPrefix, time.Now().Unix())
@@ -112,26 +118,31 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 	writer := csv.NewWriter(file)
 
 	var header []string
-	header = append(header, "id")                          // 0
-	header = append(header, "handle")                      // 1
-	header = append(header, "primary sku")                 // 2
-	header = append(header, "name")                        // 3
-	header = append(header, "product classification")      // 4
-	header = append(header, "option 1 name")               // 5
-	header = append(header, "option 1 value")              // 6
-	header = append(header, "option 2 name")               // 7
-	header = append(header, "option 2 value")              // 8
-	header = append(header, "option 3 name")               // 9
-	header = append(header, "option 3 value")              // 10
-	header = append(header, "product type")                // 11
-	header = append(header, "brand name")                  // 12
-	header = append(header, "supplier name")               // 13
-	header = append(header, "supplier code")               // 14
-	header = append(header, "tags")                        // 15
-	header = append(header, "skus list")                   // 16
-	header = append(header, "description")                 // 17
-	header = append(header, "count of images")             // 18
-	header = append(header, "supply price")                // 19
+	header = append(header, "id")                     // 0
+	header = append(header, "handle")                 // 1
+	header = append(header, "primary sku")            // 2
+	header = append(header, "name")                   // 3
+	header = append(header, "product classification") // 4
+	header = append(header, "option 1 name")          // 5
+	header = append(header, "option 1 value")         // 6
+	header = append(header, "option 2 name")          // 7
+	header = append(header, "option 2 value")         // 8
+	header = append(header, "option 3 name")          // 9
+	header = append(header, "option 3 value")         // 10
+	header = append(header, "product type")           // 11
+	header = append(header, "brand name")             // 12
+
+	// loop through suppliers and add supplier information
+	for s := 1; s <= maxSupplier; s++ {
+		header = append(header, fmt.Sprintf("supplier_%d name", s)) // 13
+		header = append(header, fmt.Sprintf("supplier_%d code", s)) // 14
+		header = append(header, fmt.Sprintf("supply_%d price", s))  // 15
+	}
+
+	header = append(header, "tags")                        // 16
+	header = append(header, "skus list")                   // 17
+	header = append(header, "description")                 // 18
+	header = append(header, "count of images")             // 19
 	header = append(header, "general price excluding tax") // 20
 	header = append(header, "loyalty amount")              // 21
 
@@ -161,8 +172,8 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 	// loop through products and write to csv
 	for _, product := range products {
-		var id, handle, sku, name, productClassification, productType, brandName, supplierName, supplierCode, description,
-			tagsList, skuList, imageCount, supplierPrice, priceExcludingTax, loyaltyAmount, weightUnit, weight, sizeUnit,
+		var id, handle, sku, name, productClassification, productType, brandName, description,
+			tagsList, skuList, imageCount, priceExcludingTax, loyaltyAmount, weightUnit, weight, sizeUnit,
 			length, width, height, active, createdAt, updatedAt, deletedAt, version string
 
 		var variantName, variantValue [3]string
@@ -213,20 +224,6 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 		if product.Brand.Name != nil {
 			brandName = *product.Brand.Name
-		}
-
-		if len(product.ProductSuppliers) > 0 {
-			supplier := product.ProductSuppliers[0]
-			if supplier.Code != nil {
-				supplierCode = *supplier.Code
-			}
-			if supplier.SupplierName != nil {
-				supplierName = *supplier.SupplierName
-			}
-			if supplier.Price != nil {
-				supplierPrice = fmt.Sprintf("%.2f", *supplier.Price)
-			}
-
 		}
 
 		if product.PriceExcludingTax != nil {
@@ -327,15 +324,41 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 		record = append(record, variantValue[2])       // 10
 		record = append(record, productType)           // 11
 		record = append(record, brandName)             // 12
-		record = append(record, supplierName)          // 13
-		record = append(record, supplierCode)          // 14
-		record = append(record, tagsList)              // 15
-		record = append(record, skuList)               // 16
-		record = append(record, description)           // 17
-		record = append(record, imageCount)            // 18
-		record = append(record, supplierPrice)         // 19
-		record = append(record, priceExcludingTax)     // 20
-		record = append(record, loyaltyAmount)         // 21
+
+		// loop through suppliers and append supplier information
+		numSuppliers := len(product.ProductSuppliers)
+		for s := 0; s < maxSupplier; s++ {
+			switch {
+			case s < numSuppliers:
+				supplier := product.ProductSuppliers[s]
+				if supplier.SupplierName != nil {
+					record = append(record, *supplier.SupplierName) // 13
+				} else {
+					record = append(record, "")
+				}
+				if supplier.Code != nil {
+					record = append(record, *supplier.Code) // 14
+				} else {
+					record = append(record, "")
+				}
+				if supplier.Price != nil {
+					record = append(record, fmt.Sprintf("%.2f", *supplier.Price)) // 15
+				} else {
+					record = append(record, "")
+				}
+			default:
+				record = append(record, "") // 13
+				record = append(record, "") // 14
+				record = append(record, "") // 15
+			}
+		}
+
+		record = append(record, tagsList)          // 16
+		record = append(record, skuList)           // 17
+		record = append(record, description)       // 18
+		record = append(record, imageCount)        // 19
+		record = append(record, priceExcludingTax) // 20
+		record = append(record, loyaltyAmount)     // 21
 
 		// loop through outlets and append inventory & tax information
 		for _, outlet := range outlets {
@@ -417,6 +440,19 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 	}
 	writer.Flush()
 	return err
+}
+
+// checks what the max number of suppliers is for products so we know how many columns to reserve
+func checkMaxSupplier(products []vend.Product) int {
+	maxNumSupplier := 0
+
+	for _, product := range products {
+		if len(product.ProductSuppliers) > maxNumSupplier {
+			maxNumSupplier = len(product.ProductSuppliers)
+		}
+	}
+
+	return maxNumSupplier
 }
 
 // build hash table so inventory records can be accessed quickly

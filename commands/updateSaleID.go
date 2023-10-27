@@ -64,7 +64,8 @@ func updateSaleID() {
 	logFileName := fmt.Sprintf("%s_post_in_case_of_emergency_%v.txt", DomainPrefix, time.Now().Unix())
 	logFile, err := os.OpenFile(fmt.Sprintf("./%s", logFileName), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("error:%s", err)
+		panic(vend.Exit{1})
 	}
 	log.SetOutput(logFile)
 
@@ -179,7 +180,10 @@ func ReadSaleUserCSV(FilePath string) ([]vend.SaleUserUpload, error) {
 	// Open our provided CSV file.
 	file, err := os.Open(FilePath)
 	if err != nil {
-		fmt.Printf("Could not read from CSV file")
+		errorMsg := `error opening csv file - please check you've specified the right file
+
+Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
+		fmt.Println(errorMsg, "\n")
 		return []vend.SaleUserUpload{}, err
 	}
 	// Make sure to close at end.
