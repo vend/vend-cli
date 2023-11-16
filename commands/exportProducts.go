@@ -46,7 +46,12 @@ func getAllProducts() {
 		panic(vend.Exit{1})
 	}
 	catalogStats.TotalInventory = int64(len(products))
+	// Get Max Supplier
 	maxSupplier := checkMaxSupplier(products)
+	// Get SKUCodes
+	SKUCodesMap := buildSKUCodesMap(products)
+	// Get Max SkuType
+	maxSkuType := checkMaxSkuType(products)
 
 	// Get Outlets
 	outlets, outletsMap, err := vc.Outlets()
@@ -87,7 +92,7 @@ func getAllProducts() {
 
 	// Write Products to CSV
 	fmt.Printf("Writing products to CSV file...\n")
-	err = productsWriteFile(products, outlets, outletsMap, recordsMap, outletTaxesMap, tagsMap, maxSupplier)
+	err = productsWriteFile(products, outlets, outletsMap, recordsMap, outletTaxesMap, tagsMap, maxSupplier, SKUCodesMap, maxSkuType)
 	if err != nil {
 		log.Printf(color.RedString("Failed writing products to CSV: %v", err))
 		panic(vend.Exit{1})
@@ -102,7 +107,7 @@ func getAllProducts() {
 // Creates CSV file and then prints product info to it
 func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 	outletsMap map[string][]vend.Outlet, recordsMap map[string]map[string]vend.InventoryRecord,
-	outletTaxesMap map[string]map[string]string, tagsMap map[string]string, maxSupplier int) error {
+	outletTaxesMap map[string]map[string]string, tagsMap map[string]string, maxSupplier int, skuCodes map[string]map[string][]string, maxSkuType map[string]int) error {
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_product_export_%v.csv", DomainPrefix, time.Now().Unix())
@@ -139,8 +144,15 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 		header = append(header, fmt.Sprintf("supply_%d price", s))  // 15
 	}
 
-	header = append(header, "tags")                        // 16
-	header = append(header, "skus list")                   // 17
+	header = append(header, "tags") // 16
+
+	// loop through sku types and add sku type information with number of columns based on max number of sku types
+	for skuType, numSkuType := range maxSkuType {
+		for s := 1; s <= numSkuType; s++ {
+			header = append(header, fmt.Sprintf("%s_%d", skuType, s)) // 17
+		}
+	}
+
 	header = append(header, "description")                 // 18
 	header = append(header, "count of images")             // 19
 	header = append(header, "general price excluding tax") // 20
@@ -173,7 +185,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 	// loop through products and write to csv
 	for _, product := range products {
 		var id, handle, sku, name, productClassification, productType, brandName, description,
-			tagsList, skuList, imageCount, priceExcludingTax, loyaltyAmount, weightUnit, weight, sizeUnit,
+			tagsList, imageCount, priceExcludingTax, loyaltyAmount, weightUnit, weight, sizeUnit,
 			length, width, height, active, createdAt, updatedAt, deletedAt, version string
 
 		var variantName, variantValue [3]string
@@ -265,17 +277,6 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 			}
 		}
 
-		// create a comma seperated list of skus
-		for idx, sku := range product.SKUCodes {
-			if sku.Code != nil {
-				if idx == 0 {
-					skuList = *sku.Code
-				} else {
-					skuList = fmt.Sprintf("%s, %s", skuList, *sku.Code)
-				}
-			}
-		}
-
 		if product.Description != nil {
 			description = *product.Description
 		}
@@ -353,8 +354,20 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 			}
 		}
 
-		record = append(record, tagsList)          // 16
-		record = append(record, skuList)           // 17
+		record = append(record, tagsList) // 16
+
+		// loop through sku types and append sku type and code information for each product
+		for skuType, numSkuType := range maxSkuType {
+			for s := 0; s < numSkuType; s++ {
+				switch {
+				case s < len(skuCodes[id][skuType]):
+					record = append(record, skuCodes[id][skuType][s]) // 17
+				default:
+					record = append(record, "") // 17
+				}
+			}
+		}
+
 		record = append(record, description)       // 18
 		record = append(record, imageCount)        // 19
 		record = append(record, priceExcludingTax) // 20
@@ -453,6 +466,51 @@ func checkMaxSupplier(products []vend.Product) int {
 	}
 
 	return maxNumSupplier
+}
+
+// loop through products and build a map of SKUCodes.Type and SKUCodes.Code
+func buildSKUCodesMap(products []vend.Product) map[string]map[string][]string {
+	var SKUCodesMap = map[string]map[string][]string{}
+
+	// set product maps, first
+	for _, product := range products {
+		SKUCodesMap[*product.ID] = map[string][]string{}
+	}
+
+	// set SKU type and code map, second
+	for _, product := range products {
+		for _, sku := range product.SKUCodes {
+			if sku.Code != nil && sku.Type != nil {
+				SKUCodesMap[*product.ID][*sku.Type] = append(SKUCodesMap[*product.ID][*sku.Type], *sku.Code)
+			}
+		}
+	}
+
+	return SKUCodesMap
+}
+
+// check the max number of each sku.type and return the max of each type as a map
+func checkMaxSkuType(products []vend.Product) map[string]int {
+	var maxSkuType = map[string]int{}
+
+	for _, product := range products {
+		// Create a temporary map to count SKU types for this product
+		tempSkuType := map[string]int{}
+		for _, sku := range product.SKUCodes {
+			if sku.Type != nil {
+				tempSkuType[*sku.Type]++
+			}
+		}
+
+		// Update maxSkuType with the counts from tempSkuType if they're larger
+		for skuType, count := range tempSkuType {
+			if count > maxSkuType[skuType] {
+				maxSkuType[skuType] = count
+			}
+		}
+	}
+
+	return maxSkuType
 }
 
 // build hash table so inventory records can be accessed quickly
