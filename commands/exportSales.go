@@ -316,7 +316,7 @@ func getUtcTime(localdt string, tz string) (string, error) {
 func createReport(domainPrefix string, outlet string) (*os.File, error) {
 
 	// Create blank CSV file to be written to.
-	fileName := fmt.Sprintf("%s_%s_sales_history_%v.csv", DomainPrefix, outlet, time.Now().Unix())
+	fileName := fmt.Sprintf("sales_history_%s_%s_f%s_t%s.csv", DomainPrefix, outlet, dateFrom, dateTo)
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
 		log.Printf("Error creating CSV file: %s", err)

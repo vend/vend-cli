@@ -407,7 +407,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 			if invRecord, ok := recordsMap[*outlet.ID][*product.ID]; ok {
 				// inventory level                           // 23
 				if invRecord.InventoryLevel != nil {
-					inventoryLevel := strconv.FormatInt(*invRecord.InventoryLevel, 10)
+					inventoryLevel := fmt.Sprintf("%.2f", *invRecord.InventoryLevel)
 					record = append(record, inventoryLevel)
 				} else {
 					record = append(record, "")
@@ -423,7 +423,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 				// reorder point                             // 25
 				if invRecord.ReorderPoint != nil {
-					reorderPoint := strconv.FormatInt(*invRecord.ReorderPoint, 10)
+					reorderPoint := fmt.Sprintf("%.2f", *invRecord.ReorderPoint)
 					record = append(record, reorderPoint)
 				} else {
 					record = append(record, "")
@@ -431,7 +431,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 				// reorderamount                             // 26
 				if invRecord.ReorderAmount != nil {
-					reorderAmount := strconv.FormatInt(*invRecord.ReorderAmount, 10)
+					reorderAmount := fmt.Sprintf("%.2f", *invRecord.ReorderAmount)
 					record = append(record, reorderAmount)
 				} else {
 					record = append(record, "")
