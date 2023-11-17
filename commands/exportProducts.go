@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -51,7 +53,7 @@ func getAllProducts() {
 	// Get SKUCodes
 	SKUCodesMap := buildSKUCodesMap(products)
 	// Get Max SkuType
-	maxSkuType := checkMaxSkuType(products)
+	maxSkuType := checkMaxSkuType(SKUCodesMap)
 
 	// Get Outlets
 	outlets, outletsMap, err := vc.Outlets()
@@ -146,10 +148,24 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 	header = append(header, "tags") // 16
 
-	// loop through sku types and add sku type information with number of columns based on max number of sku types
-	for skuType, numSkuType := range maxSkuType {
-		for s := 1; s <= numSkuType; s++ {
-			header = append(header, fmt.Sprintf("%s_%d", skuType, s)) // 17
+	// Get the SKU types from the map
+	var skuTypes []string
+	for skuType := range maxSkuType {
+		skuTypes = append(skuTypes, skuType)
+	}
+
+	// Sort the SKU types
+	sort.Strings(skuTypes)
+
+	// Add a header for each SKU type and count
+	for _, skuType := range skuTypes {
+		count := maxSkuType[skuType]
+		for i := 1; i <= count; i++ {
+			if i == 1 {
+				header = append(header, skuType) // Add the first SKU type directly to the header
+			} else {
+				header = append(header, fmt.Sprintf("%s_%d", skuType, i-1)) // Add subsequent SKU types with index
+			}
 		}
 	}
 
@@ -356,14 +372,24 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 		record = append(record, tagsList) // 16
 
-		// loop through sku types and append sku type and code information for each product
-		for skuType, numSkuType := range maxSkuType {
+		// Get the SKU types from the map
+		var skuTypes []string
+		for skuType := range maxSkuType {
+			skuTypes = append(skuTypes, skuType)
+		}
+
+		// Sort the SKU types
+		sort.Strings(skuTypes)
+
+		// Loop through sorted SKU types and append SKU type and code information for each product
+		for _, skuType := range skuTypes {
+			numSkuType := maxSkuType[skuType]
 			for s := 0; s < numSkuType; s++ {
 				switch {
 				case s < len(skuCodes[id][skuType]):
-					record = append(record, skuCodes[id][skuType][s]) // 17
+					record = append(record, skuCodes[id][skuType][s])
 				default:
-					record = append(record, "") // 17
+					record = append(record, "")
 				}
 			}
 		}
@@ -474,14 +500,20 @@ func buildSKUCodesMap(products []vend.Product) map[string]map[string][]string {
 
 	// set product maps, first
 	for _, product := range products {
-		SKUCodesMap[*product.ID] = map[string][]string{}
+		if product.ID != nil {
+			SKUCodesMap[*product.ID] = map[string][]string{}
+		}
 	}
 
 	// set SKU type and code map, second
 	for _, product := range products {
-		for _, sku := range product.SKUCodes {
-			if sku.Code != nil && sku.Type != nil {
-				SKUCodesMap[*product.ID][*sku.Type] = append(SKUCodesMap[*product.ID][*sku.Type], *sku.Code)
+		if product.ID != nil {
+			for _, sku := range product.SKUCodes {
+				if sku.Code != nil && sku.Type != nil {
+					// convert sku type to uppercase since old versions return lower
+					upperSkuType := strings.ToUpper(*sku.Type)
+					SKUCodesMap[*product.ID][upperSkuType] = append(SKUCodesMap[*product.ID][upperSkuType], *sku.Code)
+				}
 			}
 		}
 	}
@@ -490,16 +522,15 @@ func buildSKUCodesMap(products []vend.Product) map[string]map[string][]string {
 }
 
 // check the max number of each sku.type and return the max of each type as a map
-func checkMaxSkuType(products []vend.Product) map[string]int {
+func checkMaxSkuType(SKUCodesMap map[string]map[string][]string) map[string]int {
 	var maxSkuType = map[string]int{}
 
-	for _, product := range products {
+	for _, skuTypes := range SKUCodesMap {
 		// Create a temporary map to count SKU types for this product
 		tempSkuType := map[string]int{}
-		for _, sku := range product.SKUCodes {
-			if sku.Type != nil {
-				tempSkuType[*sku.Type]++
-			}
+		for skuType, skuCodes := range skuTypes {
+			upperSkuType := strings.ToUpper(skuType)
+			tempSkuType[upperSkuType] = len(skuCodes)
 		}
 
 		// Update maxSkuType with the counts from tempSkuType if they're larger
