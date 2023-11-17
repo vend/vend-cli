@@ -27,6 +27,18 @@ type User struct {
 	DeletedAt        *string `json:"deleted_at,omitempty"`
 }
 
+// User gets info about the user using the token
+func (c *Client) User() (User, error) {
+	user := User{}
+
+	data, _, err := c.ResourcePage(0, "GET", "user")
+	err = json.Unmarshal(data, &user)
+	if err != nil {
+		log.Printf("error while unmarshalling: %s", err)
+	}
+	return user, err
+}
+
 // Users gets all users from a store.
 func (c *Client) Users() ([]User, error) {
 
