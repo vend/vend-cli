@@ -198,10 +198,6 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 	writer.Write(header)
 
-	sort.Slice(products, func(i, j int) bool {
-		return *products[i].Handle < *products[j].Handle
-	})
-
 	// loop through products and write to csv
 	for _, product := range products {
 		var id, handle, sku, name, productClassification, productType, brandName, description,
