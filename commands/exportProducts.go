@@ -386,7 +386,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 			numSkuType := maxSkuType[skuType]
 			for s := 0; s < numSkuType; s++ {
 				switch {
-				case s < len(skuCodes[id][skuType]):
+				case s < len(skuCodes[id][skuType]) && skuCodes[id][skuType][s] != sku:
 					record = append(record, skuCodes[id][skuType][s])
 				default:
 					record = append(record, "")
