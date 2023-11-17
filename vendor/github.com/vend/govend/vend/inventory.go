@@ -10,13 +10,13 @@ type InventoryRecord struct {
 	ID             *string      `json:"id"`
 	OutletID       *string      `json:"outlet_id"`
 	ProductID      *string      `json:"product_id"`
-	InventoryLevel *int64       `json:"inventory_level"`
-	CurrentAmount  *int64       `json:"current_amount"`
+	InventoryLevel *float64     `json:"inventory_level"`
+	CurrentAmount  *float64     `json:"current_amount"`
 	Version        *interface{} `json:"version"`
 	DeletedAt      *interface{} `json:"deleted_at"`
 	AverageCost    *float64     `json:"average_cost"`
-	ReorderPoint   *int64       `json:"reorder_point"`
-	ReorderAmount  *int64       `json:"reorder_amount"`
+	ReorderPoint   *float64     `json:"reorder_point"`
+	ReorderAmount  *float64     `json:"reorder_amount"`
 }
 
 // Inventory() grabs inventory data and stores it into individual records
