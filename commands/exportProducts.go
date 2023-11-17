@@ -125,78 +125,77 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 	writer := csv.NewWriter(file)
 
 	var header []string
-	header = append(header, "id")                     // 0
-	header = append(header, "handle")                 // 1
-	header = append(header, "primary sku")            // 2
-	header = append(header, "name")                   // 3
-	header = append(header, "product classification") // 4
-	header = append(header, "option 1 name")          // 5
-	header = append(header, "option 1 value")         // 6
-	header = append(header, "option 2 name")          // 7
-	header = append(header, "option 2 value")         // 8
-	header = append(header, "option 3 name")          // 9
-	header = append(header, "option 3 value")         // 10
-	header = append(header, "product type")           // 11
-	header = append(header, "brand name")             // 12
+	header = append(header, "id")                         // 0
+	header = append(header, "handle")                     // 1
+	header = append(header, "sku")                        // 2
+	header = append(header, "name")                       // 3
+	header = append(header, "product classification")     // 4
+	header = append(header, "variant_option_one_name")    // 5
+	header = append(header, "variant_option_one_value")   // 6
+	header = append(header, "variant_option_two_name")    // 7
+	header = append(header, "variant_option_two_value")   // 8
+	header = append(header, "variant_option_three_name")  // 9
+	header = append(header, "variant_option_three_value") // 10
+	header = append(header, "product_category")           // 11
+	header = append(header, "brand_name")                 // 12
 
 	// loop through suppliers and add supplier information
 	for s := 1; s <= maxSupplier; s++ {
-		header = append(header, fmt.Sprintf("supplier_%d name", s)) // 13
-		header = append(header, fmt.Sprintf("supplier_%d code", s)) // 14
-		header = append(header, fmt.Sprintf("supply_%d price", s))  // 15
+		header = append(header, fmt.Sprintf("supplier_name_%d", s)) // 13
+		header = append(header, fmt.Sprintf("supplier_code_%d", s)) // 14
+		header = append(header, fmt.Sprintf("supply_price_%d", s))  // 15
 	}
 
 	header = append(header, "tags") // 16
 
-	// Get the SKU types from the map
-	var skuTypes []string
-	for skuType := range maxSkuType {
-		skuTypes = append(skuTypes, skuType)
-	}
-
-	// Sort the SKU types
-	sort.Strings(skuTypes)
+	// Get the SKU types in sorted order
+	skuTypes := getSortedSkuTypes(maxSkuType)
 
 	// Add a header for each SKU type and count
 	for _, skuType := range skuTypes {
 		count := maxSkuType[skuType]
 		for i := 1; i <= count; i++ {
 			if i == 1 {
-				header = append(header, skuType) // Add the first SKU type directly to the header
+				// Add the first SKU type directly to the header
+				header = append(header, skuType) // 17
 			} else {
-				header = append(header, fmt.Sprintf("%s_%d", skuType, i-1)) // Add subsequent SKU types with index
+				// Add subsequent SKU types with index
+				header = append(header, fmt.Sprintf("%s_%d", skuType, i-1)) // 17
 			}
 		}
 	}
 
-	header = append(header, "description")                 // 18
-	header = append(header, "count of images")             // 19
-	header = append(header, "general price excluding tax") // 20
-	header = append(header, "loyalty amount")              // 21
+	header = append(header, "description")     // 18
+	header = append(header, "count of images") // 19
+	header = append(header, "retail_price")    // 20
+	header = append(header, "loyalty_value")   // 21
 
 	// loop through outlets and list inventory information
 	for _, outlet := range outlets {
-		header = append(header, fmt.Sprintf("outlet tax: %s", *outlet.Name))      // 22
-		header = append(header, fmt.Sprintf("inventory level: %s", *outlet.Name)) // 23
-		header = append(header, fmt.Sprintf("current amount: %s", *outlet.Name))  // 24
-		header = append(header, fmt.Sprintf("average cost: %s", *outlet.Name))    // 25
-		header = append(header, fmt.Sprintf("reorder point: %s", *outlet.Name))   // 26
-		header = append(header, fmt.Sprintf("reorder amount: %s", *outlet.Name))  // 27
+		header = append(header, fmt.Sprintf("outlet_tax_%s", *outlet.Name))    // 22
+		header = append(header, fmt.Sprintf("inventory_%s", *outlet.Name))     // 23
+		header = append(header, fmt.Sprintf("average_cost_%s", *outlet.Name))  // 24
+		header = append(header, fmt.Sprintf("reorder_point_%s", *outlet.Name)) // 25
+		header = append(header, fmt.Sprintf("reorder_level_%s", *outlet.Name)) // 26
 	}
 
-	header = append(header, "weight unit") // 28
-	header = append(header, "weight")      // 29
-	header = append(header, "size unit")   // 30
-	header = append(header, "length")      // 31
-	header = append(header, "width")       // 32
-	header = append(header, "height")      // 33
-	header = append(header, "active")      // 34
-	header = append(header, "created at")  // 35
-	header = append(header, "updated at")  // 36
-	header = append(header, "deleted at")  // 37
-	header = append(header, "version")     // 38
+	header = append(header, "weight_unit") // 27
+	header = append(header, "weight")      // 28
+	header = append(header, "size_unit")   // 29
+	header = append(header, "length")      // 30
+	header = append(header, "width")       // 31
+	header = append(header, "height")      // 32
+	header = append(header, "active")      // 33
+	header = append(header, "created_at")  // 34
+	header = append(header, "updated_at")  // 35
+	header = append(header, "deleted_at")  // 36
+	header = append(header, "version")     // 37
 
 	writer.Write(header)
+
+	sort.Slice(products, func(i, j int) bool {
+		return *products[i].Handle < *products[j].Handle
+	})
 
 	// loop through products and write to csv
 	for _, product := range products {
@@ -372,14 +371,8 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 		record = append(record, tagsList) // 16
 
-		// Get the SKU types from the map
-		var skuTypes []string
-		for skuType := range maxSkuType {
-			skuTypes = append(skuTypes, skuType)
-		}
-
-		// Sort the SKU types
-		sort.Strings(skuTypes)
+		// Get the SKU types in sorted order
+		skuTypes := getSortedSkuTypes(maxSkuType)
 
 		// Loop through sorted SKU types and append SKU type and code information for each product
 		for _, skuType := range skuTypes {
@@ -387,9 +380,9 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 			for s := 0; s < numSkuType; s++ {
 				switch {
 				case s < len(skuCodes[id][skuType]) && skuCodes[id][skuType][s] != sku:
-					record = append(record, skuCodes[id][skuType][s])
+					record = append(record, skuCodes[id][skuType][s]) // 17
 				default:
-					record = append(record, "")
+					record = append(record, "") // 17
 				}
 			}
 		}
@@ -420,15 +413,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 					record = append(record, "")
 				}
 
-				// current amount                            // 24
-				if invRecord.CurrentAmount != nil {
-					currentAmount := strconv.FormatInt(*invRecord.CurrentAmount, 10)
-					record = append(record, currentAmount)
-				} else {
-					record = append(record, "")
-				}
-
-				// average cost                              // 25
+				// average cost                              // 24
 				if invRecord.AverageCost != nil {
 					averageCost := fmt.Sprintf("%.2f", *invRecord.AverageCost)
 					record = append(record, averageCost)
@@ -436,7 +421,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 					record = append(record, "")
 				}
 
-				// reorder point                             // 26
+				// reorder point                             // 25
 				if invRecord.ReorderPoint != nil {
 					reorderPoint := strconv.FormatInt(*invRecord.ReorderPoint, 10)
 					record = append(record, reorderPoint)
@@ -444,7 +429,7 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 					record = append(record, "")
 				}
 
-				// reorderamount                             // 27
+				// reorderamount                             // 26
 				if invRecord.ReorderAmount != nil {
 					reorderAmount := strconv.FormatInt(*invRecord.ReorderAmount, 10)
 					record = append(record, reorderAmount)
@@ -457,28 +442,40 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 			} else {
 				record = append(record, "") // 23
 				record = append(record, "") // 24
-				record = append(record, "") // 24
+				record = append(record, "") // 25
 				record = append(record, "") // 26
-				record = append(record, "") // 27
 			}
 		}
 
-		record = append(record, weightUnit) // 28
-		record = append(record, weight)     // 29
-		record = append(record, sizeUnit)   // 30
-		record = append(record, length)     // 31
-		record = append(record, width)      // 32
-		record = append(record, height)     // 33
-		record = append(record, active)     // 34
-		record = append(record, createdAt)  // 35
-		record = append(record, updatedAt)  // 36
-		record = append(record, deletedAt)  // 37
-		record = append(record, version)    // 38
+		record = append(record, weightUnit) // 27
+		record = append(record, weight)     // 28
+		record = append(record, sizeUnit)   // 29
+		record = append(record, length)     // 30
+		record = append(record, width)      // 31
+		record = append(record, height)     // 32
+		record = append(record, active)     // 33
+		record = append(record, createdAt)  // 34
+		record = append(record, updatedAt)  // 35
+		record = append(record, deletedAt)  // 36
+		record = append(record, version)    // 37
 
 		writer.Write(record)
 	}
 	writer.Flush()
 	return err
+}
+
+func getSortedSkuTypes(maxSkuType map[string]int) []string {
+	// Get the SKU types from the map
+	var skuTypes []string
+	for skuType := range maxSkuType {
+		skuTypes = append(skuTypes, skuType)
+	}
+
+	// Sort the SKU types
+	sort.Strings(skuTypes)
+
+	return skuTypes
 }
 
 // checks what the max number of suppliers is for products so we know how many columns to reserve
@@ -510,9 +507,9 @@ func buildSKUCodesMap(products []vend.Product) map[string]map[string][]string {
 		if product.ID != nil {
 			for _, sku := range product.SKUCodes {
 				if sku.Code != nil && sku.Type != nil {
-					// convert sku type to uppercase since old versions return lower
-					upperSkuType := strings.ToUpper(*sku.Type)
-					SKUCodesMap[*product.ID][upperSkuType] = append(SKUCodesMap[*product.ID][upperSkuType], *sku.Code)
+					// convert sku type to lowercase to keep consistent
+					lowerSkuType := strings.ToLower(*sku.Type)
+					SKUCodesMap[*product.ID][lowerSkuType] = append(SKUCodesMap[*product.ID][lowerSkuType], *sku.Code)
 				}
 			}
 		}
@@ -529,8 +526,8 @@ func checkMaxSkuType(SKUCodesMap map[string]map[string][]string) map[string]int 
 		// Create a temporary map to count SKU types for this product
 		tempSkuType := map[string]int{}
 		for skuType, skuCodes := range skuTypes {
-			upperSkuType := strings.ToUpper(skuType)
-			tempSkuType[upperSkuType] = len(skuCodes)
+			lowerSkuType := strings.ToLower(skuType)
+			tempSkuType[lowerSkuType] = len(skuCodes)
 		}
 
 		// Update maxSkuType with the counts from tempSkuType if they're larger
