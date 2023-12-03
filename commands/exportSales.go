@@ -58,97 +58,54 @@ func getAllSales() {
 	// Create a new Vend Client
 	vc := vend.NewClient(Token, DomainPrefix, timeZone)
 
-	// Parse date input for errors. Sample: 2017-11-20
-	layout := "2006-01-02"
-	_, err := time.Parse(layout, dateFrom)
-	if err != nil {
-		fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
-		panic(vend.Exit{1})
-	}
+	// Validate date input
+	validateDateInput(dateFrom, "date from")
+	validateDateInput(dateTo, "date to")
 
-	_, err = time.Parse(layout, dateTo)
-	if err != nil {
-		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
-		panic(vend.Exit{1})
-	}
-
-	// prevent further processing by checking provided timezone to be valid
-	_, err = getUtcTime(dateTo+"T00:00:00Z", timeZone)
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		panic(vend.Exit{1})
-	}
+	// Validate provided timezone
+	validateTimeZone(dateTo+"T00:00:00Z", timeZone)
 
 	// Pull data from Vend
 	fmt.Println("\nRetrieving data from Vend...")
 
-	// Get outlets first to check provided outlet first before expensive sales pull
-	outlets, _, err := vc.Outlets()
-	if err != nil {
-		log.Printf(color.RedString("Failed to get outlets: %v", err))
-		panic(vend.Exit{1})
-	}
+	// Get outlets and lookup outlet name by id
+	oidToOutletName := getOutletsAndOutletNameMap(vc)
 
-	// lookup outlet name by id
-	oidToOutletName := getOidToOutletName(outlets)
-
-	// prevent unnecessary processing to retrieve if providing wrong outlet name
+	// Check if the provided outlet exists
 	if outlet != "all" && !validOutlet(outlet, oidToOutletName) {
 		fmt.Printf(color.RedString("\n'%s' Outlet does not exist in the '%s' account\n\n", outlet, DomainPrefix))
 		return
 	}
 
 	// Filter the sales by date range and outlet
-	utcDateFrom, _ := getUtcTime(dateFrom+"T00:00:00Z", vc.TimeZone)
-	utcDateTo, _ := getUtcTime(dateTo+"T23:59:59Z", vc.TimeZone)
-
-	versionAfter, _ := vc.GetStartVersion(getTime(utcDateFrom), utcDateFrom)
+	utcDateFrom, utcDateTo, versionAfter := prepareDateAndVersion(vc)
 
 	// Get Sale data.
-	//sales, err := vc.Sales()
 	sales, err := vc.SalesAfter(versionAfter)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
 
-	// Get registers
-	registers, err := vc.Registers()
-	if err != nil {
-		log.Printf("Failed to get registers: %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get users.
-	users, err := vc.Users()
-	if err != nil {
-		log.Printf("Failed to get users: %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get customers.
-	customers, err := vc.Customers()
-	if err != nil {
-		log.Printf("Failed to get customers: %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get Customer Groups.
-	customerGroupMap, err := vc.CustomerGroups()
-	if err != nil {
-		log.Printf("Failed retrieving customer groups from Vend %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get products.
-	products, _, err := vc.Products()
-	if err != nil {
-		log.Printf("Failed to get products: %v", err)
-		panic(vend.Exit{1})
-	}
+	// Get other data
+	registers, users, customers, customerGroupMap, products := getVendDataForSalesReport(vc)
 
 	fmt.Printf("\nFiltering sales by outlet and date range...\n")
 
+	// Process outlets
+	processOutlets(vc, oidToOutletName, sales, utcDateFrom, utcDateTo, registers, users, customers, customerGroupMap, products)
+}
+
+func processOutlets(vc vend.Client, oidToOutletName map[string]string, sales []vend.Sale, utcDateFrom, utcDateTo string, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
+	allOutletsName := getAllOutletsToProcess(oidToOutletName)
+
+	for _, outlet := range allOutletsName {
+		filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
+		processOutlet(vc, outlet, filteredSales, registers, users, customers, customerGroupMap, products)
+	}
+}
+
+func getAllOutletsToProcess(oidToOutletName map[string]string) []string {
 	var allOutletsName []string
 
 	// add the provided outlet by default
@@ -158,33 +115,94 @@ func getAllSales() {
 		allOutletsName = getAllOutletNames(oidToOutletName)
 	}
 
-	// go through outlets to filter by date range and write to CSV
-	for _, outlet := range allOutletsName {
-		//filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, outlets, outlet)
-		filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
-		if len(filteredSales) > 0 {
-			//sort the sales asc by saledate since the pull may be out of order - version
-			sortBySaleDate(filteredSales)
+	return allOutletsName
+}
 
-			// Create template report to be written to.
-			file, err := createReport(vc.DomainPrefix, outlet)
-			if err != nil {
-				log.Printf("Failed creating template CSV: %v", err)
-				panic(vend.Exit{1})
-			}
-			defer file.Close()
+func processOutlet(vc vend.Client, outlet string, filteredSales []vend.Sale, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
+	if len(filteredSales) > 0 {
+		sortBySaleDate(filteredSales)
 
-			// Write sale to CSV.
-			fmt.Printf("Writing Sales to CSV file - %s...\n", outlet)
-			// file = writeReport(file, registers, users, customers, products, sales, vc.DomainPrefix, vc.TimeZone)
-			file = writeReport(file, registers, users, customers, customerGroupMap, products, filteredSales, vc.DomainPrefix, vc.TimeZone)
-
-			fmt.Printf(color.GreenString("\nExported %v sales - %s\n\n", len(filteredSales), outlet))
-		} else {
-			fmt.Printf(color.GreenString("\n%s has no sales for the specified time period, skipping...\n", outlet))
+		file, err := createReport(vc.DomainPrefix, outlet)
+		if err != nil {
+			log.Printf("Failed creating template CSV: %v", err)
+			panic(vend.Exit{1})
 		}
+		defer file.Close()
+
+		fmt.Printf("Writing Sales to CSV file - %s...\n", outlet)
+		file = writeReport(file, registers, users, customers, customerGroupMap, products, filteredSales, vc.DomainPrefix, vc.TimeZone)
+
+		fmt.Printf(color.GreenString("\nExported %v sales - %s\n\n", len(filteredSales), outlet))
+	} else {
+		fmt.Printf(color.GreenString("\n%s has no sales for the specified time period, skipping...\n", outlet))
+	}
+}
+
+func validateDateInput(date string, label string) {
+	layout := "2006-01-02"
+	_, err := time.Parse(layout, date)
+	if err != nil {
+		fmt.Printf("incorrect %s: %v, %v", label, date, err)
+		panic(vend.Exit{1})
+	}
+}
+
+func validateTimeZone(date string, timeZone string) {
+	_, err := getUtcTime(date, timeZone)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		panic(vend.Exit{1})
+	}
+}
+
+func getOutletsAndOutletNameMap(vc vend.Client) map[string]string {
+	outlets, _, err := vc.Outlets()
+	if err != nil {
+		log.Printf(color.RedString("Failed to get outlets: %v", err))
+		panic(vend.Exit{1})
+	}
+	return getOidToOutletName(outlets)
+}
+
+func prepareDateAndVersion(vc vend.Client) (string, string, int64) {
+	utcDateFrom, _ := getUtcTime(dateFrom+"T00:00:00Z", vc.TimeZone)
+	utcDateTo, _ := getUtcTime(dateTo+"T23:59:59Z", vc.TimeZone)
+	versionAfter, _ := vc.GetStartVersion(getTime(utcDateFrom), utcDateFrom)
+	return utcDateFrom, utcDateTo, versionAfter
+}
+
+func getVendDataForSalesReport(vc vend.Client) ([]vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
+	registers, err := vc.Registers()
+	if err != nil {
+		log.Printf("Failed to get registers: %v", err)
+		panic(vend.Exit{1})
 	}
 
+	users, err := vc.Users()
+	if err != nil {
+		log.Printf("Failed to get users: %v", err)
+		panic(vend.Exit{1})
+	}
+
+	customers, err := vc.Customers()
+	if err != nil {
+		log.Printf("Failed to get customers: %v", err)
+		panic(vend.Exit{1})
+	}
+
+	customerGroupMap, err := vc.CustomerGroups()
+	if err != nil {
+		log.Printf("Failed retrieving customer groups from Vend %v", err)
+		panic(vend.Exit{1})
+	}
+
+	products, _, err := vc.Products()
+	if err != nil {
+		log.Printf("Failed to get products: %v", err)
+		panic(vend.Exit{1})
+	}
+
+	return registers, users, customers, customerGroupMap, products
 }
 
 // getAllOutletNames returns the slice of outlet names based on the provided
