@@ -66,7 +66,11 @@ func importSales() {
 
 	if isPostMode {
 		fmt.Printf("\nRunning command in post mode with overwrite set to %t\n", overwriteBool)
-		postSales(erroredSales, overwriteBool)
+		if overwriteBool {
+			postSales(erroredSales)
+		} else {
+			checkedBeforePosting(erroredSales)
+		}
 	} else {
 		fmt.Printf("\nRunning command in parse mode\n")
 		// 1970-01-01T00:00:00Z is just a dummy date to validate the timezone
@@ -132,14 +136,103 @@ func parseSales(sales9 []vend.Sale9) {
 
 	file = addSalesReportHeader(file)
 
-	fmt.Println("Writing Sales to CSV file")
+	fmt.Println("Writing sales report...")
 	file = writeSalesReport(file, registers, users, customers, customerGroupMap, products, sales, DomainPrefix, timeZoneImportSales)
 
 	fmt.Printf("Sales report created: %s\n", file.Name())
 }
 
-func postSales(sales []vend.Sale9, overwrite bool) {
+func postSales(sales []vend.Sale9) {
 	fmt.Println("Posting Sales!")
+
+	for idx, sale := range sales {
+		if sale.ID != nil {
+			err := postSale(sale)
+			if err != nil {
+				fmt.Printf("Error posting sale %s: %s\n", *sale.ID, err)
+				continue
+			} else {
+				fmt.Printf("Sale %s posted successfully!\n", *sale.ID)
+			}
+		} else {
+			fmt.Printf("Sale ID of sale number: %v in list is nil. Skipping..", idx)
+		}
+	}
+}
+
+func checkedBeforePosting(sales []vend.Sale9) {
+	fmt.Println("Checking sales before posting!")
+
+	for idx, sale := range sales {
+
+		if sale.ID != nil {
+			saleID := *sale.ID
+
+			exists, err := saleExists(saleID)
+			if err != nil {
+				fmt.Printf("Error checking if sale %s exists: %s\n", saleID, err)
+				fmt.Println("Skipping..")
+				continue
+			}
+
+			if exists {
+				fmt.Printf("Sale %s already exists. Skipping..\n", saleID)
+			} else {
+				err = postSale(sale)
+				if err != nil {
+					fmt.Printf("Error posting sale %s: %s\n", saleID, err)
+					continue
+				} else {
+					fmt.Printf("Sale %s posted successfully!\n", saleID)
+				}
+			}
+		} else {
+			fmt.Printf("Sale ID of sale number: %v in list is nil. Skipping..", idx)
+		}
+	}
+}
+
+func postSale(sale vend.Sale9) error {
+	fmt.Printf("Posting sale %s\n", *sale.ID)
+
+	vc := *vendClient
+	url := fmt.Sprintf("https://%s.vendhq.com/api/register_sales", DomainPrefix)
+
+	_, err := vc.MakeRequest("POST", url, sale)
+	if err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+// saleExists checks the endpoint /register_sales/{id} for an error
+func saleExists(id string) (bool, error) {
+
+	vc := *vendClient
+	saleResponse := vend.RegisterSales{}
+
+	// Create the Vend URL
+	url := fmt.Sprintf("https://%s.vendhq.com/api/register_sales/%s", DomainPrefix, id)
+
+	// Make the request
+	res, err := vc.MakeRequest("GET", url, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// Unmarshal JSON Response
+	err = json.Unmarshal(res, &saleResponse)
+	if err != nil {
+		return false, err
+	}
+
+	// in testing, an invalid uuid returns a 200 with an empty array
+	if len(saleResponse.RegisterSales) > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 func parseOverwriteFlag(o string) bool {
