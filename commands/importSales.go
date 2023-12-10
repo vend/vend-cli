@@ -104,14 +104,76 @@ func readJSONFile(jsonFilePath string) ([]vend.Sale9, error) {
 		panic(vend.Exit{1})
 	}
 
-	// unmarshal json
-	var sales []vend.Sale9
-	err = json.Unmarshal(fileContent, &sales)
+	// parse json file
+	data, err := parseJsonFile(fileContent)
 	if err != nil {
+		fmt.Printf("Error parsing json file:\n%s\n", err)
+		panic(vend.Exit{1})
+	}
+
+	// convert generic interface to []vend.Sale9
+	switch convertedData := data.(type) {
+	case []vend.Sale9:
+		return convertedData, nil
+	case vend.RegisterSale9:
+		return convertedData.RegisterSale9, nil
+	default:
+		return nil, fmt.Errorf("unknown JSON format")
+	}
+}
+
+// parseJsonFile guesses the format of the json and tries to unmarshal into the correct struct
+// we're using keys to guess the format
+func parseJsonFile(fileContent []byte) (interface{}, error) {
+
+	var jsonData interface{}
+	if err := json.Unmarshal(fileContent, &jsonData); err != nil {
 		return nil, err
 	}
 
-	return sales, nil
+	switch data := jsonData.(type) {
+
+	case []interface{}:
+		if len(data) > 0 {
+			if m, ok := data[0].(map[string]interface{}); ok {
+				// iOS errored sales format
+				if _, ok := m["register_sale_products"]; ok {
+					var sales []vend.Sale9
+					err := json.Unmarshal(fileContent, &sales)
+					if err != nil {
+						return nil, err
+					} else {
+						return sales, nil
+					}
+				} else {
+					return nil, fmt.Errorf("unknown JSON format")
+				}
+			} else {
+				return nil, fmt.Errorf("unknown JSON format")
+			}
+		} else {
+			return nil, fmt.Errorf("unknown JSON format")
+		}
+
+	case map[string]interface{}:
+		// Legacy 0.9 sales format
+		if _, ok := data["register_sales"]; ok {
+			var saleResponse vend.RegisterSale9
+			err := json.Unmarshal(fileContent, &saleResponse)
+			if err != nil {
+				return nil, err
+			} else {
+				return saleResponse.RegisterSale9, nil
+			}
+			// Web errored sales format
+		} else if _, ok := data["erroredSales"]; ok {
+			return nil, fmt.Errorf("web errored sales format is not supported")
+		} else {
+			return nil, fmt.Errorf("unknown JSON format")
+		}
+	default:
+		return nil, fmt.Errorf("unknown JSON format")
+	}
 }
 
 func parseSales(sales9 []vend.Sale9) {
