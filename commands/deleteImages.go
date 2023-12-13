@@ -52,7 +52,7 @@ func deleteImages() {
 		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/product_images/%s", DomainPrefix, id)
 		_, err = vendClient.MakeRequest("DELETE", url, nil)
 		if err != nil {
-			fmt.Printf(color.RedString("Failed to delete consignment: %v", err))
+			fmt.Printf(color.RedString("Failed to delete image: %v", err))
 			continue
 		}
 		count = +1
