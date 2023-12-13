@@ -58,97 +58,54 @@ func getAllSales() {
 	// Create a new Vend Client
 	vc := vend.NewClient(Token, DomainPrefix, timeZone)
 
-	// Parse date input for errors. Sample: 2017-11-20
-	layout := "2006-01-02"
-	_, err := time.Parse(layout, dateFrom)
-	if err != nil {
-		fmt.Printf("incorrect date from: %v, %v", dateFrom, err)
-		panic(vend.Exit{1})
-	}
+	// Validate date input
+	validateDateInput(dateFrom, "date from")
+	validateDateInput(dateTo, "date to")
 
-	_, err = time.Parse(layout, dateTo)
-	if err != nil {
-		fmt.Printf("incorrect date to: %v, %v", dateTo, err)
-		panic(vend.Exit{1})
-	}
-
-	// prevent further processing by checking provided timezone to be valid
-	_, err = getUtcTime(dateTo+"T00:00:00Z", timeZone)
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		panic(vend.Exit{1})
-	}
+	// Validate provided timezone
+	validateTimeZone(dateTo+"T00:00:00Z", timeZone)
 
 	// Pull data from Vend
 	fmt.Println("\nRetrieving data from Vend...")
 
-	// Get outlets first to check provided outlet first before expensive sales pull
-	outlets, _, err := vc.Outlets()
-	if err != nil {
-		log.Printf(color.RedString("Failed to get outlets: %v", err))
-		panic(vend.Exit{1})
-	}
+	// Get outlets and lookup outlet name by id
+	oidToOutletName := getOutletsAndOutletNameMap(vc)
 
-	// lookup outlet name by id
-	oidToOutletName := getOidToOutletName(outlets)
-
-	// prevent unnecessary processing to retrieve if providing wrong outlet name
+	// Check if the provided outlet exists
 	if outlet != "all" && !validOutlet(outlet, oidToOutletName) {
 		fmt.Printf(color.RedString("\n'%s' Outlet does not exist in the '%s' account\n\n", outlet, DomainPrefix))
 		return
 	}
 
 	// Filter the sales by date range and outlet
-	utcDateFrom, _ := getUtcTime(dateFrom+"T00:00:00Z", vc.TimeZone)
-	utcDateTo, _ := getUtcTime(dateTo+"T23:59:59Z", vc.TimeZone)
-
-	versionAfter, _ := vc.GetStartVersion(getTime(utcDateFrom), utcDateFrom)
+	utcDateFrom, utcDateTo, versionAfter := prepareDateAndVersion(vc)
 
 	// Get Sale data.
-	//sales, err := vc.Sales()
 	sales, err := vc.SalesAfter(versionAfter)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
 
-	// Get registers
-	registers, err := vc.Registers()
-	if err != nil {
-		log.Printf("Failed to get registers: %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get users.
-	users, err := vc.Users()
-	if err != nil {
-		log.Printf("Failed to get users: %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get customers.
-	customers, err := vc.Customers()
-	if err != nil {
-		log.Printf("Failed to get customers: %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get Customer Groups.
-	customerGroupMap, err := vc.CustomerGroups()
-	if err != nil {
-		log.Printf("Failed retrieving customer groups from Vend %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get products.
-	products, _, err := vc.Products()
-	if err != nil {
-		log.Printf("Failed to get products: %v", err)
-		panic(vend.Exit{1})
-	}
+	// Get other data
+	registers, users, customers, customerGroupMap, products := GetVendDataForSalesReport(vc)
 
 	fmt.Printf("\nFiltering sales by outlet and date range...\n")
 
+	// Process outlets
+	processOutlets(vc, oidToOutletName, sales, utcDateFrom, utcDateTo, registers, users, customers, customerGroupMap, products)
+}
+
+func processOutlets(vc vend.Client, oidToOutletName map[string]string, sales []vend.Sale, utcDateFrom, utcDateTo string, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
+	allOutletsName := getAllOutletsToProcess(oidToOutletName)
+
+	for _, outlet := range allOutletsName {
+		filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
+		processOutlet(vc, outlet, filteredSales, registers, users, customers, customerGroupMap, products)
+	}
+}
+
+func getAllOutletsToProcess(oidToOutletName map[string]string) []string {
 	var allOutletsName []string
 
 	// add the provided outlet by default
@@ -158,33 +115,96 @@ func getAllSales() {
 		allOutletsName = getAllOutletNames(oidToOutletName)
 	}
 
-	// go through outlets to filter by date range and write to CSV
-	for _, outlet := range allOutletsName {
-		//filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, outlets, outlet)
-		filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
-		if len(filteredSales) > 0 {
-			//sort the sales asc by saledate since the pull may be out of order - version
-			sortBySaleDate(filteredSales)
+	return allOutletsName
+}
 
-			// Create template report to be written to.
-			file, err := createReport(vc.DomainPrefix, outlet)
-			if err != nil {
-				log.Printf("Failed creating template CSV: %v", err)
-				panic(vend.Exit{1})
-			}
-			defer file.Close()
+func processOutlet(vc vend.Client, outlet string, filteredSales []vend.Sale, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
+	if len(filteredSales) > 0 {
+		sortBySaleDate(filteredSales)
 
-			// Write sale to CSV.
-			fmt.Printf("Writing Sales to CSV file - %s...\n", outlet)
-			// file = writeReport(file, registers, users, customers, products, sales, vc.DomainPrefix, vc.TimeZone)
-			file = writeReport(file, registers, users, customers, customerGroupMap, products, filteredSales, vc.DomainPrefix, vc.TimeZone)
-
-			fmt.Printf(color.GreenString("\nExported %v sales - %s\n\n", len(filteredSales), outlet))
-		} else {
-			fmt.Printf(color.GreenString("\n%s has no sales for the specified time period, skipping...\n", outlet))
+		file, err := createReport(vc.DomainPrefix, outlet)
+		if err != nil {
+			log.Printf("Failed creating template CSV: %v", err)
+			panic(vend.Exit{1})
 		}
+		defer file.Close()
+
+		file = addSalesReportHeader(file)
+
+		fmt.Printf("Writing Sales to CSV file - %s...\n", outlet)
+		file = writeSalesReport(file, registers, users, customers, customerGroupMap, products, filteredSales, vc.DomainPrefix, vc.TimeZone)
+
+		fmt.Printf(color.GreenString("\nExported %v sales - %s\n\n", len(filteredSales), outlet))
+	} else {
+		fmt.Printf(color.GreenString("\n%s has no sales for the specified time period, skipping...\n", outlet))
+	}
+}
+
+func validateDateInput(date string, label string) {
+	layout := "2006-01-02"
+	_, err := time.Parse(layout, date)
+	if err != nil {
+		fmt.Printf("incorrect %s: %v, %v", label, date, err)
+		panic(vend.Exit{1})
+	}
+}
+
+func validateTimeZone(date string, timeZone string) {
+	_, err := getUtcTime(date, timeZone)
+	if err != nil {
+		fmt.Printf("timezone invalid: %v\n", err)
+		panic(vend.Exit{1})
+	}
+}
+
+func getOutletsAndOutletNameMap(vc vend.Client) map[string]string {
+	outlets, _, err := vc.Outlets()
+	if err != nil {
+		log.Printf(color.RedString("Failed to get outlets: %v", err))
+		panic(vend.Exit{1})
+	}
+	return getOidToOutletName(outlets)
+}
+
+func prepareDateAndVersion(vc vend.Client) (string, string, int64) {
+	utcDateFrom, _ := getUtcTime(dateFrom+"T00:00:00Z", vc.TimeZone)
+	utcDateTo, _ := getUtcTime(dateTo+"T23:59:59Z", vc.TimeZone)
+	versionAfter, _ := vc.GetStartVersion(getTime(utcDateFrom), utcDateFrom)
+	return utcDateFrom, utcDateTo, versionAfter
+}
+
+func GetVendDataForSalesReport(vc vend.Client) ([]vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
+	registers, err := vc.Registers()
+	if err != nil {
+		log.Printf("Failed to get registers: %v", err)
+		panic(vend.Exit{1})
 	}
 
+	users, err := vc.Users()
+	if err != nil {
+		log.Printf("Failed to get users: %v", err)
+		panic(vend.Exit{1})
+	}
+
+	customers, err := vc.Customers()
+	if err != nil {
+		log.Printf("Failed to get customers: %v", err)
+		panic(vend.Exit{1})
+	}
+
+	customerGroupMap, err := vc.CustomerGroups()
+	if err != nil {
+		log.Printf("Failed retrieving customer groups from Vend %v", err)
+		panic(vend.Exit{1})
+	}
+
+	products, _, err := vc.Products()
+	if err != nil {
+		log.Printf("Failed to get products: %v", err)
+		panic(vend.Exit{1})
+	}
+
+	return registers, users, customers, customerGroupMap, products
 }
 
 // getAllOutletNames returns the slice of outlet names based on the provided
@@ -323,6 +343,10 @@ func createReport(domainPrefix string, outlet string) (*os.File, error) {
 		panic(vend.Exit{1})
 	}
 
+	return file, err
+}
+
+func addSalesReportHeader(file *os.File) *os.File {
 	// Start CSV writer.
 	writer := csv.NewWriter(file)
 
@@ -360,11 +384,11 @@ func createReport(domainPrefix string, outlet string) (*os.File, error) {
 	writer.Write(headerLine)
 	writer.Flush()
 
-	return file, err
+	return file
 }
 
 // writeReport aims to mimic the report generated by exporting Vend sales history
-func writeReport(file *os.File, registers []vend.Register, users []vend.User,
+func writeSalesReport(file *os.File, registers []vend.Register, users []vend.User,
 	customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product, sales []vend.Sale, domainPrefix,
 	timeZone string) *os.File {
 
@@ -408,48 +432,50 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 			customerPostalState, customerPostalPostcode, customerPostalCountryID, customerGroup string
 		for _, customer := range customers {
 			// Make sure we only use info from customer on our sale.
-			if *customer.ID == *sale.CustomerID {
-				if customer.FirstName != nil {
-					customerFirstName = *customer.FirstName
-					customerFullName = append(customerFullName, customerFirstName)
-				}
-				if customer.LastName != nil {
-					customerLastName = *customer.LastName
-					customerFullName = append(customerFullName, customerLastName)
-				}
-				if customer.Code != nil {
-					customerCode = *customer.Code
-				}
-				if customer.Email != nil {
-					customerEmail = *customer.Email
-				}
-				if customer.GroupId != nil {
-					customerGroup = customerGroupMap[*customer.GroupId]
-				}
-				if customer.DoNotEmail != nil {
-					doNotEmail = fmt.Sprint(*customer.DoNotEmail)
-				}
-				if customer.PostalAddress1 != nil {
-					customerPostalAddress1 = *customer.PostalAddress1
-				}
-				if customer.PostalAddress2 != nil {
-					customerPostalAddress2 = *customer.PostalAddress2
-				}
-				if customer.PostalCity != nil {
-					customerPostalCity = *customer.PostalCity
-				}
-				if customer.PostalState != nil {
-					customerPostalState = *customer.PostalState
-				}
-				if customer.PostalPostcode != nil {
-					customerPostalPostcode = *customer.PostalPostcode
-				}
-				if customer.PostalCountryID != nil {
-					customerPostalCountryID = *customer.PostalCountryID
-				}
+			if customer.ID != nil && sale.CustomerID != nil {
+				if *customer.ID == *sale.CustomerID {
+					if customer.FirstName != nil {
+						customerFirstName = *customer.FirstName
+						customerFullName = append(customerFullName, customerFirstName)
+					}
+					if customer.LastName != nil {
+						customerLastName = *customer.LastName
+						customerFullName = append(customerFullName, customerLastName)
+					}
+					if customer.Code != nil {
+						customerCode = *customer.Code
+					}
+					if customer.Email != nil {
+						customerEmail = *customer.Email
+					}
+					if customer.GroupId != nil {
+						customerGroup = customerGroupMap[*customer.GroupId]
+					}
+					if customer.DoNotEmail != nil {
+						doNotEmail = fmt.Sprint(*customer.DoNotEmail)
+					}
+					if customer.PostalAddress1 != nil {
+						customerPostalAddress1 = *customer.PostalAddress1
+					}
+					if customer.PostalAddress2 != nil {
+						customerPostalAddress2 = *customer.PostalAddress2
+					}
+					if customer.PostalCity != nil {
+						customerPostalCity = *customer.PostalCity
+					}
+					if customer.PostalState != nil {
+						customerPostalState = *customer.PostalState
+					}
+					if customer.PostalPostcode != nil {
+						customerPostalPostcode = *customer.PostalPostcode
+					}
+					if customer.PostalCountryID != nil {
+						customerPostalCountryID = *customer.PostalCountryID
+					}
 
-				customerName = strings.Join(customerFullName, " ")
-				break
+					customerName = strings.Join(customerFullName, " ")
+					break
+				}
 			}
 		}
 
@@ -463,8 +489,10 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 		var totalQuantity, totalDiscount float64
 		var saleItems []string
 		for _, lineitem := range *sale.LineItems {
-			totalQuantity += *lineitem.Quantity
-			totalDiscount += *lineitem.DiscountTotal
+			if lineitem.Quantity != nil && lineitem.DiscountTotal != nil {
+				totalQuantity += *lineitem.Quantity
+				totalDiscount += *lineitem.DiscountTotal
+			}
 
 			for _, product := range products {
 				if *product.ID == *lineitem.ProductID {
@@ -483,15 +511,27 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 		// Show items sold separated by + sign.
 		saleDetails := strings.Join(saleItems, " + ")
 
+		var totalPrice, totalTax, total string
 		// Sale subtotal.
-		totalPrice := strconv.FormatFloat(*sale.TotalPrice, 'f', -1, 64)
-		// Sale tax.
-		totalTax := strconv.FormatFloat(*sale.TotalTax, 'f', -1, 64)
-		// Sale total (subtotal plus tax).
-		total := strconv.FormatFloat((*sale.TotalPrice + *sale.TotalTax), 'f', -1, 64)
+		if sale.TotalPrice != nil {
+			totalPrice = strconv.FormatFloat(*sale.TotalPrice, 'f', -1, 64)
+		}
 
+		// Sale tax.
+		if sale.TotalTax != nil {
+			totalTax = strconv.FormatFloat(*sale.TotalTax, 'f', -1, 64)
+		}
+
+		// Sale total (subtotal plus tax).
+		if sale.TotalPrice != nil && sale.TotalTax != nil {
+			total = strconv.FormatFloat((*sale.TotalPrice + *sale.TotalTax), 'f', -1, 64)
+		}
+
+		var totalLoyaltyStr string
 		// Total loyalty on sale.
-		totalLoyaltyStr := strconv.FormatFloat(*sale.TotalLoyalty, 'f', -1, 64)
+		if sale.TotalLoyalty != nil {
+			totalLoyaltyStr = strconv.FormatFloat(*sale.TotalLoyalty, 'f', -1, 64)
+		}
 
 		var registerName string
 		for _, register := range registers {
@@ -565,13 +605,25 @@ func writeReport(file *os.File, registers []vend.Register, users []vend.User,
 		writer.Write(record)
 
 		for _, lineitem := range *sale.LineItems {
-
-			quantity := strconv.FormatFloat(*lineitem.Quantity, 'f', -1, 64)
-			price := strconv.FormatFloat(*lineitem.Price, 'f', -1, 64)
-			tax := strconv.FormatFloat(*lineitem.Tax, 'f', -1, 64)
-			discount := strconv.FormatFloat(*lineitem.Discount, 'f', -1, 64)
-			loyalty := strconv.FormatFloat(*lineitem.LoyaltyValue, 'f', -1, 64)
-			total := strconv.FormatFloat(((*lineitem.Price + *lineitem.Tax) * *lineitem.Quantity), 'f', -1, 64)
+			var quantity, price, tax, discount, loyalty, total string
+			if lineitem.Quantity != nil {
+				quantity = strconv.FormatFloat(*lineitem.Quantity, 'f', -1, 64)
+			}
+			if lineitem.Price != nil {
+				price = strconv.FormatFloat(*lineitem.Price, 'f', -1, 64)
+			}
+			if lineitem.Tax != nil {
+				tax = strconv.FormatFloat(*lineitem.Tax, 'f', -1, 64)
+			}
+			if lineitem.Discount != nil {
+				discount = strconv.FormatFloat(*lineitem.Discount, 'f', -1, 64)
+			}
+			if lineitem.LoyaltyValue != nil {
+				loyalty = strconv.FormatFloat(*lineitem.LoyaltyValue, 'f', -1, 64)
+			}
+			if lineitem.Price != nil && lineitem.Tax != nil && lineitem.Quantity != nil {
+				total = strconv.FormatFloat(((*lineitem.Price + *lineitem.Tax) * *lineitem.Quantity), 'f', -1, 64)
+			}
 
 			var productName, productSKU string
 			for _, product := range products {
