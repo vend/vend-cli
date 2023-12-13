@@ -44,7 +44,7 @@ Using overwrite "true" is useful when you want to change a field of an existing 
 When using this command for errored sales, it is highly recommended that you use parse mode first to check the sales before posting.
 
 Example:
-	%s`, color.GreenString("vendcli import-sales -d DOMAINPREFIX -t TOKEN -f FILENAME.csv -m MODE -o OVERWRITE -z TIMEZONE")),
+	%s`, color.GreenString("vendcli import-sales -d DOMAINPREFIX -t TOKEN -f FILENAME.json -m MODE -o OVERWRITE -z TIMEZONE")),
 		Run: func(cmd *cobra.Command, args []string) {
 			importSales()
 		},
@@ -53,7 +53,7 @@ Example:
 
 func init() {
 	// Flag
-	importSalesCmd.Flags().StringVarP(&filePath, "filename", "f", "", "The name of your file: filename.csv")
+	importSalesCmd.Flags().StringVarP(&filePath, "filename", "f", "", "The name of your file: filename.json")
 	importSalesCmd.MarkFlagRequired("filename")
 
 	importSalesCmd.Flags().StringVarP(&overwrite, "overwrite", "o", "", "overwrite sales: true or false")
@@ -336,9 +336,10 @@ func createErredSalesReport() (*os.File, error) {
 	writer := csv.NewWriter(file)
 
 	var warningMessage []string
-	warningMessage = append(warningMessage, "NOTE:")
-	warningMessage = append(warningMessage, "This file contains sales that received an error when posting.")
-	warningMessage = append(warningMessage, "These sales have not been posted")
+	warningMessage = append(warningMessage, "WARNING:")
+	warningMessage = append(warningMessage, "This CSV report is generated solely from the provided JSON data.")
+	warningMessage = append(warningMessage, "It does not reflect the current status of sales")
+	warningMessage = append(warningMessage, "Use this data for reference purposes only, and be aware that it may not accurately represent the latest sales information or its posting status in the system.")
 
 	writer.Write(warningMessage)
 	writer.Flush()
