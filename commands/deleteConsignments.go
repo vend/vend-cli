@@ -55,7 +55,7 @@ func deleteConsignments() {
 			fmt.Printf(color.RedString("Failed to delete consignment: %v", err))
 			continue
 		}
-		count = +1
+		count += 1
 
 	}
 	fmt.Printf(color.GreenString("\n\nFinished! 🎉\nDeleted %d out of %d consignments"), count, len(ids))

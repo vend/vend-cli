@@ -55,7 +55,8 @@ func deleteImages() {
 			fmt.Printf(color.RedString("Failed to delete image: %v", err))
 			continue
 		}
-		count = +1
+		count += 1
+		fmt.Println(count)
 
 	}
 	fmt.Printf(color.GreenString("\n\nFinished! 🎉\nDeleted %d out of %d images"), count, len(ids))
