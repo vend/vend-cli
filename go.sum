@@ -192,8 +192,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
-github.com/vend/govend v0.2.0 h1:Xdr/lJXwAUjMyau/JSIj9/S6+UKQmHMXs8oIM/CMydY=
-github.com/vend/govend v0.2.0/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
+github.com/vend/govend v0.4.0 h1:R8bmMutrLc3DkCCDspphVPtvsKzuCcsoudolLQ4b6Tw=
+github.com/vend/govend v0.4.0/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
 github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3 h1:nxWV9UNdGHW3OezVTq99ak99RvqMM+H+oG+aKNraxT4=
 github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3/go.mod h1:P0XJ0/hGOuePFbpFCHyzHMls2afcv32GHlmL/VuIpHg=
 github.com/wallclockbuilder/testify v0.0.0-20150512124233-dab07ac62d49 h1:2q+dCr8jqV705ORsqrqTATbsXAUQbYr6iSnPY7EVzWY=

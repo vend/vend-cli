@@ -3,6 +3,7 @@ package vend
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 )
 
@@ -73,6 +74,17 @@ type Image struct {
 	ID      *string `json:"id,omitempty"`
 	URL     *string `json:"url,omitempty"`
 	Version *int64  `json:"version"`
+}
+
+type ImageDetailsPayload struct {
+	Data ImageDetails `json:"data"`
+}
+type ImageDetails struct {
+	ID        *string `json:"id"`
+	Version   *int64  `json:"version"`
+	ProductID *string `json:"product_id"`
+	Position  *int64  `json:"position"`
+	Status    *string `json:"status"`
 }
 
 // SKUCodes houses list of skus for a given product
@@ -246,5 +258,24 @@ func (c *Client) Tags() (map[string]string, error) {
 	}
 
 	return tagsMap, err
+
+}
+
+func (c *Client) ProductImagesDetails(id string) (ImageDetails, error) {
+
+	var payload ImageDetailsPayload
+
+	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/product_images/%s", c.DomainPrefix, id)
+	body, err := c.MakeRequest("GET", url, nil)
+	if err != nil {
+		return payload.Data, err
+	}
+
+	err = json.Unmarshal(body, &payload)
+	if err != nil {
+		return payload.Data, err
+	}
+
+	return payload.Data, nil
 
 }
