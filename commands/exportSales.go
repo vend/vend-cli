@@ -8,12 +8,23 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
 )
+
+type SaleResults struct {
+	sales            []vend.Sale
+	registers        []vend.Register
+	users            []vend.User
+	customers        []vend.Customer
+	customerGroupMap map[string]string
+	products         []vend.Product
+	err              error
+}
 
 // Command config
 var (
@@ -80,20 +91,62 @@ func getAllSales() {
 	// Filter the sales by date range and outlet
 	utcDateFrom, utcDateTo, versionAfter := prepareDateAndVersion(vc)
 
-	// Get Sale data.
-	sales, err := vc.SalesAfter(versionAfter)
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return
-	}
-
-	// Get other data
-	registers, users, customers, customerGroupMap, products := GetVendDataForSalesReport(vc)
+	// Get all sales data
+	sales, registers, users, customers, customerGroupMap, products := getAllSalesData(vc, versionAfter)
 
 	fmt.Printf("\nFiltering sales by outlet and date range...\n")
 
 	// Process outlets
 	processOutlets(vc, oidToOutletName, sales, utcDateFrom, utcDateTo, registers, users, customers, customerGroupMap, products)
+}
+
+func getAllSalesData(vc vend.Client, versionAfter int64) ([]vend.Sale, []vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
+	var wg sync.WaitGroup
+	saleResults := make(chan SaleResults, 2)
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		fmt.Println("Getting sales...")
+		sales, err := vc.SalesAfter(versionAfter)
+		fmt.Println("Got sales...")
+		saleResults <- SaleResults{sales: sales, err: err}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		fmt.Println("Getting everything else...")
+		registers, users, customers, customerGroupMap, products := GetVendDataForSalesReport(vc)
+		fmt.Println("Got everything else...")
+		saleResults <- SaleResults{registers: registers, users: users, customers: customers, customerGroupMap: customerGroupMap, products: products}
+	}()
+	// Launch a goroutine to close the res channel after all other goroutines complete
+	go func() {
+		wg.Wait()
+		fmt.Println("Closing channel...")
+		close(saleResults)
+	}()
+	var sales []vend.Sale
+	var registers []vend.Register
+	var users []vend.User
+	var customers []vend.Customer
+	customerGroupMap := make(map[string]string)
+	var products []vend.Product
+	for i := 0; i < 2; i++ {
+		s := <-saleResults
+		if s.err != nil {
+			log.Printf(color.RedString("Failed to get data: %v", s.err))
+			return nil, nil, nil, nil, nil, nil
+		}
+		sales = append(sales, s.sales...)
+		registers = append(registers, s.registers...)
+		users = append(users, s.users...)
+		customers = append(customers, s.customers...)
+		for k, v := range s.customerGroupMap {
+			customerGroupMap[k] = v
+		}
+		products = append(products, s.products...)
+	}
+	return sales, registers, users, customers, customerGroupMap, products
 }
 
 func processOutlets(vc vend.Client, oidToOutletName map[string]string, sales []vend.Sale, utcDateFrom, utcDateTo string, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
@@ -174,34 +227,82 @@ func prepareDateAndVersion(vc vend.Client) (string, string, int64) {
 }
 
 func GetVendDataForSalesReport(vc vend.Client) ([]vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
-	registers, err := vc.Registers()
-	if err != nil {
-		log.Printf("Failed to get registers: %v", err)
-		panic(vend.Exit{1})
-	}
+	// create a waitgroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
+	// create a channel to receive the results for each goroutine
+	res := make(chan SaleResults, 5)
 
-	users, err := vc.Users()
-	if err != nil {
-		log.Printf("Failed to get users: %v", err)
-		panic(vend.Exit{1})
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		fmt.Println("Getting registers...")
+		registers, err := vc.Registers()
+		fmt.Println("Got registers...")
+		res <- SaleResults{registers: registers, err: err}
+	}()
 
-	customers, err := vc.Customers()
-	if err != nil {
-		log.Printf("Failed to get customers: %v", err)
-		panic(vend.Exit{1})
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		fmt.Println("Getting users...")
+		users, err := vc.Users()
+		fmt.Println("Got users...")
+		res <- SaleResults{users: users, err: err}
+	}()
 
-	customerGroupMap, err := vc.CustomerGroups()
-	if err != nil {
-		log.Printf("Failed retrieving customer groups from Vend %v", err)
-		panic(vend.Exit{1})
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		fmt.Println("Getting customers...")
+		customers, err := vc.Customers()
+		fmt.Println("Got customers...")
+		res <- SaleResults{customers: customers, err: err}
+	}()
 
-	products, _, err := vc.Products()
-	if err != nil {
-		log.Printf("Failed to get products: %v", err)
-		panic(vend.Exit{1})
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		fmt.Println("Getting customer groups...")
+		customerGroupMap, err := vc.CustomerGroups()
+		fmt.Println("Got customer groups...")
+		res <- SaleResults{customerGroupMap: customerGroupMap, err: err}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		fmt.Println("Getting products...")
+		products, _, err := vc.Products()
+		fmt.Println("Got products...")
+		res <- SaleResults{products: products, err: err}
+	}()
+
+	// Launch a goroutine to close the res channel after all other goroutines complete
+	go func() {
+		wg.Wait()
+		fmt.Println("Closing channel...")
+		close(res)
+	}()
+
+	var registers []vend.Register
+	var users []vend.User
+	var customers []vend.Customer
+	customerGroupMap := make(map[string]string)
+	var products []vend.Product
+
+	for i := 0; i < 5; i++ {
+		s := <-res
+		if s.err != nil {
+			log.Printf(color.RedString("Failed to get data: %v", s.err))
+			panic(vend.Exit{1})
+		}
+		registers = append(registers, s.registers...)
+		users = append(users, s.users...)
+		customers = append(customers, s.customers...)
+		for k, v := range s.customerGroupMap {
+			customerGroupMap[k] = v
+		}
+		products = append(products, s.products...)
 	}
 
 	return registers, users, customers, customerGroupMap, products
