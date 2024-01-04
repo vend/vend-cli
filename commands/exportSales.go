@@ -147,10 +147,17 @@ func getAllSalesData(vc vend.Client, versionAfter int64) ([]vend.Sale, []vend.Re
 func processOutlets(vc vend.Client, oidToOutletName map[string]string, sales []vend.Sale, utcDateFrom, utcDateTo string, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
 	allOutletsName := getAllOutletsToProcess(oidToOutletName)
 
+	var wg sync.WaitGroup
 	for _, outlet := range allOutletsName {
-		filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
-		processOutlet(vc, outlet, filteredSales, registers, users, customers, customerGroupMap, products)
+		wg.Add(1)
+		go func(outlet string) {
+			defer wg.Done()
+			filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
+			processOutlet(vc, outlet, filteredSales, registers, users, customers, customerGroupMap, products)
+		}(outlet)
 	}
+
+	wg.Wait()
 }
 
 func getAllOutletsToProcess(oidToOutletName map[string]string) []string {
