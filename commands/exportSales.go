@@ -106,23 +106,18 @@ func getAllSalesData(vc vend.Client, versionAfter int64) ([]vend.Sale, []vend.Re
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
-		fmt.Println("Getting sales...")
 		sales, err := vc.SalesAfter(versionAfter)
-		fmt.Println("Got sales...")
 		saleResults <- SaleResults{sales: sales, err: err}
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
-		fmt.Println("Getting everything else...")
 		registers, users, customers, customerGroupMap, products := GetVendDataForSalesReport(vc)
-		fmt.Println("Got everything else...")
 		saleResults <- SaleResults{registers: registers, users: users, customers: customers, customerGroupMap: customerGroupMap, products: products}
 	}()
 	// Launch a goroutine to close the res channel after all other goroutines complete
 	go func() {
 		wg.Wait()
-		fmt.Println("Closing channel...")
 		close(saleResults)
 	}()
 	var sales []vend.Sale
@@ -235,52 +230,41 @@ func GetVendDataForSalesReport(vc vend.Client) ([]vend.Register, []vend.User, []
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
-		fmt.Println("Getting registers...")
 		registers, err := vc.Registers()
-		fmt.Println("Got registers...")
 		res <- SaleResults{registers: registers, err: err}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
-		fmt.Println("Getting users...")
 		users, err := vc.Users()
-		fmt.Println("Got users...")
 		res <- SaleResults{users: users, err: err}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
-		fmt.Println("Getting customers...")
 		customers, err := vc.Customers()
-		fmt.Println("Got customers...")
 		res <- SaleResults{customers: customers, err: err}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
-		fmt.Println("Getting customer groups...")
 		customerGroupMap, err := vc.CustomerGroups()
-		fmt.Println("Got customer groups...")
 		res <- SaleResults{customerGroupMap: customerGroupMap, err: err}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
-		fmt.Println("Getting products...")
 		products, _, err := vc.Products()
-		fmt.Println("Got products...")
 		res <- SaleResults{products: products, err: err}
 	}()
 
 	// Launch a goroutine to close the res channel after all other goroutines complete
 	go func() {
 		wg.Wait()
-		fmt.Println("Closing channel...")
 		close(res)
 	}()
 
