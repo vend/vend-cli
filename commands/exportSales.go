@@ -444,35 +444,36 @@ func addSalesReportHeader(file *os.File) *os.File {
 
 	// Set header values.
 	var headerLine []string
-	headerLine = append(headerLine, "Sale Date")          // 0
-	headerLine = append(headerLine, "Sale Time")          // 1
-	headerLine = append(headerLine, "Invoice Number")     // 2
-	headerLine = append(headerLine, "Line Type")          // 3
-	headerLine = append(headerLine, "Customer Code")      // 4
-	headerLine = append(headerLine, "Customer Name")      // 5
-	headerLine = append(headerLine, "Customer Email")     // 6
-	headerLine = append(headerLine, "Customer Group")     // 7
-	headerLine = append(headerLine, "Customer Address1")  // 8
-	headerLine = append(headerLine, "Customer Address2")  // 9
-	headerLine = append(headerLine, "Customer City")      // 10
-	headerLine = append(headerLine, "Customer State")     // 11
-	headerLine = append(headerLine, "Customer Postcode")  // 12
-	headerLine = append(headerLine, "Customer CountryID") // 13
-	headerLine = append(headerLine, "Do not email")       // 14
-	headerLine = append(headerLine, "Sale Note")          // 15
-	headerLine = append(headerLine, "Quantity")           // 16
-	headerLine = append(headerLine, "Cost")               // 17
-	headerLine = append(headerLine, "Price")              // 18
-	headerLine = append(headerLine, "Tax")                // 19
-	headerLine = append(headerLine, "Discount")           // 20
-	headerLine = append(headerLine, "Loyalty")            // 21
-	headerLine = append(headerLine, "Total")              // 22
-	headerLine = append(headerLine, "Paid")               // 23
-	headerLine = append(headerLine, "Details")            // 24
-	headerLine = append(headerLine, "Register")           // 25
-	headerLine = append(headerLine, "User")               // 26
-	headerLine = append(headerLine, "Status")             // 27
-	headerLine = append(headerLine, "Product Sku")        // 28
+	headerLine = append(headerLine, "Sale UUID")          // 0
+	headerLine = append(headerLine, "Sale Date")          // 1
+	headerLine = append(headerLine, "Sale Time")          // 2
+	headerLine = append(headerLine, "Invoice Number")     // 3
+	headerLine = append(headerLine, "Line Type")          // 4
+	headerLine = append(headerLine, "Customer Code")      // 5
+	headerLine = append(headerLine, "Customer Name")      // 6
+	headerLine = append(headerLine, "Customer Email")     // 7
+	headerLine = append(headerLine, "Customer Group")     // 8
+	headerLine = append(headerLine, "Customer Address1")  // 9
+	headerLine = append(headerLine, "Customer Address2")  // 10
+	headerLine = append(headerLine, "Customer City")      // 11
+	headerLine = append(headerLine, "Customer State")     // 12
+	headerLine = append(headerLine, "Customer Postcode")  // 13
+	headerLine = append(headerLine, "Customer CountryID") // 14
+	headerLine = append(headerLine, "Do not email")       // 15
+	headerLine = append(headerLine, "Sale Note")          // 16
+	headerLine = append(headerLine, "Quantity")           // 17
+	headerLine = append(headerLine, "Cost")               // 18
+	headerLine = append(headerLine, "Price")              // 19
+	headerLine = append(headerLine, "Tax")                // 20
+	headerLine = append(headerLine, "Discount")           // 21
+	headerLine = append(headerLine, "Loyalty")            // 22
+	headerLine = append(headerLine, "Total")              // 23
+	headerLine = append(headerLine, "Paid")               // 24
+	headerLine = append(headerLine, "Details")            // 25
+	headerLine = append(headerLine, "Register")           // 26
+	headerLine = append(headerLine, "User")               // 27
+	headerLine = append(headerLine, "Status")             // 28
+	headerLine = append(headerLine, "Product Sku")        // 29
 
 	// Write headerline to file.
 	writer.Write(headerLine)
@@ -499,6 +500,11 @@ func writeSalesReport(file *os.File, registers []vend.Register, users []vend.Use
 		// Do not include sales with status of "OPEN"
 		if sale.Status != nil && *sale.Status == "OPEN" {
 			continue
+		}
+
+		var saleID string
+		if sale.ID != nil {
+			saleID = *sale.ID
 		}
 
 		// Takes a Vend timestamp string as input and converts it to a Go Time.time value.
@@ -670,35 +676,36 @@ func writeSalesReport(file *os.File, registers []vend.Register, users []vend.Use
 
 		// Write first sale line to file.
 		var record []string
-		record = append(record, dateStr)                 // 0. Date
-		record = append(record, timeStr)                 // 1. Time
-		record = append(record, invoiceNumber)           // 2. Receipt Number
-		record = append(record, "Sale")                  // 3. Line Type
-		record = append(record, customerCode)            // 4. Customer Code
-		record = append(record, customerName)            // 5. Customer Name
-		record = append(record, customerEmail)           // 6. Customer Email
-		record = append(record, customerGroup)           // 7. Customer Group
-		record = append(record, customerPostalAddress1)  // 8. Customer PostalAddress 1
-		record = append(record, customerPostalAddress2)  // 9. Customer PostalAddress 2
-		record = append(record, customerPostalCity)      // 10. Customer PostalCity
-		record = append(record, customerPostalState)     // 11. Customer Postal State
-		record = append(record, customerPostalPostcode)  // 12. Customer Postal PostCode
-		record = append(record, customerPostalCountryID) // 13. Customer Postal Country ID
-		record = append(record, doNotEmail)              // 14. Marketing Opt in/out
-		record = append(record, saleNote)                // 15. Note
-		record = append(record, totalQuantityStr)        // 16. Quantity
-		record = append(record, totalTransactionCostStr) // 17. Transaction Cost
-		record = append(record, totalPrice)              // 18. Subtotal
-		record = append(record, totalTax)                // 19. Sales Tax
-		record = append(record, totalDiscountStr)        // 20. Discount
-		record = append(record, totalLoyaltyStr)         // 21. Loyalty
-		record = append(record, total)                   // 22. Sale total
-		record = append(record, "")                      // 23. Paid
-		record = append(record, saleDetails)             // 24. Details
-		record = append(record, registerName)            // 25. Register
-		record = append(record, userName)                // 26. User
-		record = append(record, saleStatus)              // 27. Status
-		record = append(record, "")                      // 28. Sku
+		record = append(record, saleID)                  // 0. Sale UUID
+		record = append(record, dateStr)                 // 1. Date
+		record = append(record, timeStr)                 // 2. Time
+		record = append(record, invoiceNumber)           // 3. Receipt Number
+		record = append(record, "Sale")                  // 4. Line Type
+		record = append(record, customerCode)            // 5. Customer Code
+		record = append(record, customerName)            // 6. Customer Name
+		record = append(record, customerEmail)           // 7. Customer Email
+		record = append(record, customerGroup)           // 8. Customer Group
+		record = append(record, customerPostalAddress1)  // 9. Customer PostalAddress 1
+		record = append(record, customerPostalAddress2)  // 10. Customer PostalAddress 2
+		record = append(record, customerPostalCity)      // 11. Customer PostalCity
+		record = append(record, customerPostalState)     // 12. Customer Postal State
+		record = append(record, customerPostalPostcode)  // 13. Customer Postal PostCode
+		record = append(record, customerPostalCountryID) // 14. Customer Postal Country ID
+		record = append(record, doNotEmail)              // 15. Marketing Opt in/out
+		record = append(record, saleNote)                // 16. Note
+		record = append(record, totalQuantityStr)        // 17. Quantity
+		record = append(record, totalTransactionCostStr) // 18. Transaction Cost
+		record = append(record, totalPrice)              // 19. Subtotal
+		record = append(record, totalTax)                // 20. Sales Tax
+		record = append(record, totalDiscountStr)        // 21. Discount
+		record = append(record, totalLoyaltyStr)         // 22. Loyalty
+		record = append(record, total)                   // 23. Sale total
+		record = append(record, "")                      // 24. Paid
+		record = append(record, saleDetails)             // 25. Details
+		record = append(record, registerName)            // 26. Register
+		record = append(record, userName)                // 27. User
+		record = append(record, saleStatus)              // 28. Status
+		record = append(record, "")                      // 29. Sku
 
 		writer.Write(record)
 
@@ -736,35 +743,36 @@ func writeSalesReport(file *os.File, registers []vend.Register, users []vend.Use
 
 			// Write product records for given sale to file.
 			productRecord := record
-			productRecord[0] = dateStr       // 0. Sale Date
-			productRecord[1] = timeStr       // 1. Sale Time
-			productRecord[2] = invoiceNumber // 2. Invoice Number
-			productRecord[3] = "Sale Line"   // 3. Line Type
-			productRecord[4] = ""            // 4. Customer Code
-			productRecord[5] = ""            // 5. Customer Name
-			productRecord[6] = ""            // 6. Customer Email
-			productRecord[7] = ""            // 7. Customer Group
-			productRecord[8] = ""            // 8. Customer Postal Address 1
-			productRecord[9] = ""            // 9. Customer Postal Address 2
-			productRecord[10] = ""           // 10. Customer Postal City
-			productRecord[11] = ""           // 11. Customer Postal State
-			productRecord[12] = ""           // 12. Customer Postal PostCode
-			productRecord[13] = ""           // 13. Customer Postal Country ID
-			productRecord[14] = ""           // 14. TODO: line note from the product?
-			productRecord[15] = ""           // 15. Marketing Opt in/out
-			productRecord[16] = quantity     // 16. Quantity
-			productRecord[17] = unitCost     // 17. Unit Cost
-			productRecord[18] = price        // 18. Subtotal
-			productRecord[19] = tax          // 19. Sales Tax
-			productRecord[20] = discount     // 20. Discount
-			productRecord[21] = loyalty      // 21. Loyalty
-			productRecord[22] = total        // 22. Total
-			productRecord[23] = ""           // 23. Paid
-			productRecord[24] = productName  // 24. Details
-			productRecord[25] = ""           // 25. Register
-			productRecord[26] = ""           // 26. User
-			productRecord[27] = ""           // 27. Status
-			productRecord[28] = productSKU   // 28. Sku
+			productRecord[0] = saleID        // 0. Sale UUID
+			productRecord[1] = dateStr       // 1. Sale Date
+			productRecord[2] = timeStr       // 2. Sale Time
+			productRecord[3] = invoiceNumber // 3. Invoice Number
+			productRecord[4] = "Sale Line"   // 4. Line Type
+			productRecord[5] = ""            // 5. Customer Code
+			productRecord[6] = ""            // 6. Customer Name
+			productRecord[7] = ""            // 7. Customer Email
+			productRecord[8] = ""            // 8. Customer Group
+			productRecord[9] = ""            // 9. Customer Postal Address 1
+			productRecord[10] = ""           // 10. Customer Postal Address 2
+			productRecord[11] = ""           // 11. Customer Postal City
+			productRecord[12] = ""           // 12. Customer Postal State
+			productRecord[13] = ""           // 13. Customer Postal PostCode
+			productRecord[14] = ""           // 14. Customer Postal Country ID
+			productRecord[15] = ""           // 15. TODO: line note from the product?
+			productRecord[16] = ""           // 16. Marketing Opt in/out
+			productRecord[17] = quantity     // 17. Quantity
+			productRecord[18] = unitCost     // 18. Unit Cost
+			productRecord[19] = price        // 19. Subtotal
+			productRecord[20] = tax          // 20. Sales Tax
+			productRecord[21] = discount     // 21. Discount
+			productRecord[22] = loyalty      // 22. Loyalty
+			productRecord[23] = total        // 23. Total
+			productRecord[24] = ""           // 24. Paid
+			productRecord[25] = productName  // 25. Details
+			productRecord[26] = ""           // 26. Register
+			productRecord[27] = ""           // 27. User
+			productRecord[28] = ""           // 28. Status
+			productRecord[29] = productSKU   // 29. Sku
 
 			writer.Write(productRecord)
 		}
@@ -776,35 +784,36 @@ func writeSalesReport(file *os.File, registers []vend.Register, users []vend.Use
 			name := fmt.Sprintf("%s", *payment.Name)
 
 			paymentRecord := record
-			paymentRecord[0] = dateStr       // 0. Sale Date
-			paymentRecord[1] = timeStr       // 1. Sale Time
-			paymentRecord[2] = invoiceNumber // 2. Invoice Number
-			paymentRecord[3] = "Payment"     // 3. Line Type
-			paymentRecord[4] = ""            // 4. Customer Code
-			paymentRecord[5] = ""            // 5. Customer Name
-			paymentRecord[6] = ""            // 6. Customer Email
-			paymentRecord[7] = ""            // 7. Customer Group
-			paymentRecord[8] = ""            // 8. Customer Postal Address 1
-			paymentRecord[9] = ""            // 9. Customer Postal Address 2
-			paymentRecord[10] = ""           // 10. Customer Postal City
-			paymentRecord[11] = ""           // 11. Customer Postal State
-			paymentRecord[12] = ""           // 12. Customer Postal PostalCode
-			paymentRecord[13] = ""           // 13. Customer Postal Country ID
-			paymentRecord[14] = ""           // 14. Marketing Opt in/out
-			paymentRecord[15] = ""           // 15. TODO: line note
-			paymentRecord[16] = ""           // 16. Quantity
-			paymentRecord[17] = ""           // 17. Cost
-			paymentRecord[18] = ""           // 18. Subtotal
-			paymentRecord[19] = ""           // 19. Sales Tax
-			paymentRecord[20] = ""           // 20. Discount
-			paymentRecord[21] = ""           // 21. Loyalty
-			paymentRecord[22] = ""           // 22. Total
-			paymentRecord[23] = paid         // 23. Paid
-			paymentRecord[24] = name         // 24. Details
-			paymentRecord[25] = ""           // 25. Register
-			paymentRecord[26] = ""           // 26. User
-			paymentRecord[27] = ""           // 27. Status
-			paymentRecord[28] = ""           // 28. Sku
+			paymentRecord[0] = saleID        // 0. Sale UUID
+			paymentRecord[1] = dateStr       // 1. Sale Date
+			paymentRecord[2] = timeStr       // 2. Sale Time
+			paymentRecord[3] = invoiceNumber // 3. Invoice Number
+			paymentRecord[4] = "Payment"     // 4. Line Type
+			paymentRecord[5] = ""            // 5. Customer Code
+			paymentRecord[6] = ""            // 6. Customer Name
+			paymentRecord[7] = ""            // 7. Customer Email
+			paymentRecord[8] = ""            // 8. Customer Group
+			paymentRecord[9] = ""            // 9. Customer Postal Address 1
+			paymentRecord[10] = ""           // 10. Customer Postal Address 2
+			paymentRecord[11] = ""           // 11. Customer Postal City
+			paymentRecord[12] = ""           // 12. Customer Postal State
+			paymentRecord[13] = ""           // 13. Customer Postal PostalCode
+			paymentRecord[14] = ""           // 14. Customer Postal Country ID
+			paymentRecord[15] = ""           // 15. Marketing Opt in/out
+			paymentRecord[16] = ""           // 16. TODO: line note
+			paymentRecord[17] = ""           // 17. Quantity
+			paymentRecord[18] = ""           // 18. Cost
+			paymentRecord[19] = ""           // 19. Subtotal
+			paymentRecord[20] = ""           // 20. Sales Tax
+			paymentRecord[21] = ""           // 21. Discount
+			paymentRecord[22] = ""           // 22. Loyalty
+			paymentRecord[23] = ""           // 23. Total
+			paymentRecord[24] = paid         // 24. Paid
+			paymentRecord[25] = name         // 25. Details
+			paymentRecord[26] = ""           // 26. Register
+			paymentRecord[27] = ""           // 27. User
+			paymentRecord[28] = ""           // 28. Status
+			paymentRecord[29] = ""           // 29. Sku
 
 			writer.Write(paymentRecord)
 		}
