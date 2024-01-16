@@ -77,7 +77,8 @@ func readAverageCostCSVFile(pathToFile string) []ProductCost {
 	checkAverageCostCSVHeader(records)
 	products := []ProductCost{}
 
-	for _, record := range records {
+	// Loop through the rows, skip the first row (header)
+	for _, record := range records[1:] {
 		productID := record[0]
 
 		// Zero index is productID, then outletID and cost are in pairs so we increment by 2 from index 1
@@ -92,6 +93,7 @@ func readAverageCostCSVFile(pathToFile string) []ProductCost {
 			products = append(products, product)
 		}
 	}
+
 	return products
 
 }
@@ -133,8 +135,7 @@ func postAverageCosts(productCosts []ProductCost) [][]FailedRequest {
 	failedRequests := [][]FailedRequest{}
 
 	// Split the ProductCosts into batches
-	// start at 1 since we don't want to include the header
-	for i := 1; i < len(productCosts); i += batchSize {
+	for i := 0; i < len(productCosts); i += batchSize {
 		endIndex := i + batchSize
 		if endIndex > len(productCosts) {
 			endIndex = len(productCosts)
