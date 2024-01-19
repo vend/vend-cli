@@ -1,13 +1,21 @@
 package cmd
 
 import (
+	"encoding/csv"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
 )
+
+type FailedCustomerDeleteRequest struct {
+	CustomerID string
+	Reason     string
+}
 
 // deleteCustomersCmd represents the deleteCustomers command
 var deleteCustomersCmd = &cobra.Command{
@@ -45,14 +53,55 @@ func deleteCustomers() {
 		panic(vend.Exit{1})
 	}
 
+	failedRequests := []FailedCustomerDeleteRequest{}
+
 	// Make the requests
 	for _, id := range ids {
-		fmt.Printf("\nDeleting %v", id)
+		fmt.Printf("Deleting %v\n", id)
 		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/customers/%s", DomainPrefix, id)
 		_, err = vendClient.MakeRequest("DELETE", url, nil)
 		if err != nil {
-			fmt.Printf(color.RedString("Failed to delete customer: %v", err))
+			failedRequests = append(failedRequests, FailedCustomerDeleteRequest{CustomerID: id, Reason: err.Error()})
 		}
 	}
+
+	if len(failedRequests) > 0 {
+		fmt.Printf("There were some errors. Writing failures to csv.. \n")
+		saveFailedCustomerDeleteRequestsToCSV(failedRequests)
+	}
+
 	fmt.Println(color.GreenString("\n\nFinished! 🎉\n"))
+
+}
+
+func saveFailedCustomerDeleteRequestsToCSV(failedRequests []FailedCustomerDeleteRequest) {
+
+	fileName := fmt.Sprintf("%s_failed_requests__%v.csv", DomainPrefix, time.Now().Unix())
+	// Create a new CSV file
+	file, err := os.Create(fileName)
+	if err != nil {
+		log.Printf(color.RedString("Failed to create file: %s", "failed-requests.csv"))
+		panic(vend.Exit{1})
+	}
+	defer file.Close()
+
+	header := []string{"Customer ID", "Reason"}
+	writer := csv.NewWriter(file)
+	err = writer.Write(header)
+	if err != nil {
+		fmt.Println("Error writing failed requests to file:", err)
+		return
+	}
+
+	// Write the data
+	for _, failedRequest := range failedRequests {
+
+		record := []string{failedRequest.CustomerID, failedRequest.Reason}
+		err := writer.Write(record)
+		if err != nil {
+			fmt.Println("Error writing failed requests to file:", err)
+			return
+		}
+	}
+	writer.Flush()
 }
