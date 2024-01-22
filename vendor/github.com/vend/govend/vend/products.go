@@ -7,7 +7,7 @@ import (
 	"log"
 )
 
-// Product is a basic product object
+// Product is a basic product object based on /2.0/products endpoint
 // TODO: There are a number of unused fields left over from the 0.9 API, need to remove them and test
 type Product struct {
 	ID                  *string            `json:"id"`
@@ -36,7 +36,7 @@ type Product struct {
 	AccountCodePurchase *string            `json:"account_code_purchase"`
 	AccountCodeSales    *string            `json:"account_code_sales"`
 	Source              *string            `json:"source"`
-	TrackInventory      bool               `json:"track_inventory"`
+	TrackInventory      bool               `json:"has_inventory"`
 	PriceBookEntries    []PriceBookEntry   `json:"price_book_entries"`
 	PriceExcludingTax   *float64           `json:"price_excluding_tax"`
 	Type                Type               `json:"type"`
