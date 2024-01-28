@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/messenger"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
@@ -179,8 +181,8 @@ func processOutlet(vc vend.Client, outlet string, filteredSales []vend.Sale, reg
 
 		file, err := createReport(vc.DomainPrefix, outlet)
 		if err != nil {
-			log.Printf("Failed creating template CSV: %v", err)
-			panic(vend.Exit{1})
+			err = fmt.Errorf("Failed creating template CSV: %v", err)
+			messenger.ExitWithError(err)
 		}
 		defer file.Close()
 
@@ -199,24 +201,24 @@ func validateDateInput(date string, label string) {
 	layout := "2006-01-02"
 	_, err := time.Parse(layout, date)
 	if err != nil {
-		fmt.Printf("incorrect %s: %v, %v", label, date, err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("incorrect %s: %v, %v", label, date, err)
+		messenger.ExitWithError(err)
 	}
 }
 
 func validateTimeZone(date string, timeZone string) {
 	_, err := getUtcTime(date, timeZone)
 	if err != nil {
-		fmt.Printf("timezone invalid: %v\n", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("timezone invalid: %v\n", err)
+		messenger.ExitWithError(err)
 	}
 }
 
 func getOutletsAndOutletNameMap(vc vend.Client) map[string]string {
 	outlets, _, err := vc.Outlets()
 	if err != nil {
-		log.Printf(color.RedString("Failed to get outlets: %v", err))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to get outlets: %v", err)
+		messenger.ExitWithError(err)
 	}
 	return getOidToOutletName(outlets)
 }
@@ -284,8 +286,8 @@ func GetVendDataForSalesReport(vc vend.Client) ([]vend.Register, []vend.User, []
 	for i := 0; i < 5; i++ {
 		s := <-res
 		if s.err != nil {
-			log.Printf(color.RedString("Failed to get data: %v", s.err))
-			panic(vend.Exit{1})
+			err := fmt.Errorf("Failed to get data: %v", s.err)
+			messenger.ExitWithError(err)
 		}
 		registers = append(registers, s.registers...)
 		users = append(users, s.users...)
@@ -431,8 +433,8 @@ func createReport(domainPrefix string, outlet string) (*os.File, error) {
 	fileName := fmt.Sprintf("sales_history_%s_%s_f%s_t%s.csv", DomainPrefix, outlet, dateFrom, dateTo)
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Printf("Error creating CSV file: %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error creating CSV file: %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	return file, err
@@ -508,7 +510,11 @@ func writeSalesReport(file *os.File, registers []vend.Register, users []vend.Use
 		}
 
 		// Takes a Vend timestamp string as input and converts it to a Go Time.time value.
-		dateTimeInLocation := vend.ParseVendDT(*sale.SaleDate, timeZone)
+		dateTimeInLocation, err := vend.ParseVendDT(*sale.SaleDate, timeZone)
+		if err != nil {
+			fmt.Printf("Error parsing date: %s\n", err)
+			dateTimeInLocation = time.Unix(0, 0) // If we can't parse the date, set it to the Unix epoch.
+		}
 		// Time string with timezone removed.
 		dateTimeStr := dateTimeInLocation.String()[0:19]
 		// Split time and date on space.

@@ -3,12 +3,13 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -44,8 +45,8 @@ func getAllProducts() {
 	fmt.Println("\nRetrieving Products...")
 	products, _, err := vc.Products()
 	if err != nil {
-		log.Printf("Failed retrieving products from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving products from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 	catalogStats.TotalInventory = int64(len(products))
 	// Get Max Supplier
@@ -58,22 +59,22 @@ func getAllProducts() {
 	// Get Outlets
 	outlets, outletsMap, err := vc.Outlets()
 	if err != nil {
-		log.Printf("Failed retrieving outlets from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving outlets from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Get Outlet Taxes
 	outletTaxes, err := vc.OutletTaxes()
 	if err != nil {
-		log.Printf("Failed retrieving outlet taxes from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving outlet taxes from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Get Taxes
 	_, taxMaps, err := vc.Taxes()
 	if err != nil {
-		log.Printf("Failed retrieving taxes from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving taxes from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Get Inventory
@@ -96,8 +97,8 @@ func getAllProducts() {
 	fmt.Printf("Writing products to CSV file...\n")
 	err = productsWriteFile(products, outlets, outletsMap, recordsMap, outletTaxesMap, tagsMap, maxSupplier, SKUCodesMap, maxSkuType)
 	if err != nil {
-		log.Printf(color.RedString("Failed writing products to CSV: %v", err))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed writing products to CSV: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Print happy message, and then display catalog stats

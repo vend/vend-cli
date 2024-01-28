@@ -3,9 +3,10 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -49,8 +50,8 @@ func deleteCustomers() {
 	fmt.Println("\nReading CSV...")
 	ids, err := readCSV(FilePath)
 	if err != nil {
-		log.Printf(color.RedString("Failed to get IDs from the file: %s", FilePath))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to get IDs from the file: %s", FilePath)
+		messenger.ExitWithError(err)
 	}
 
 	failedRequests := []FailedCustomerDeleteRequest{}
@@ -80,8 +81,8 @@ func saveFailedCustomerDeleteRequestsToCSV(failedRequests []FailedCustomerDelete
 	// Create a new CSV file
 	file, err := os.Create(fileName)
 	if err != nil {
-		log.Printf(color.RedString("Failed to create file: %s", "failed-requests.csv"))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to create file: %s", fileName)
+		messenger.ExitWithError(err)
 	}
 	defer file.Close()
 

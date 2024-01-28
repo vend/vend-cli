@@ -3,9 +3,10 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -39,22 +40,22 @@ func getAllCustomers() {
 	fmt.Println("\nRetrieving Customers from Vend...")
 	customers, err := vc.Customers()
 	if err != nil {
-		log.Printf("Failed retrieving customers from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving customers from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	customerGroupMap, err := vc.CustomerGroups()
 	if err != nil {
-		log.Printf("Failed retrieving customer groups from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving customer groups from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Write Customers to CSV
 	fmt.Println("Writing customers to CSV file...")
 	err = cWriteFile(customers, customerGroupMap)
 	if err != nil {
-		log.Printf(color.RedString("Failed writing customers to CSV: %v", err))
-		panic(vend.Exit{1})
+		err = fmt.Errorf(color.RedString("Failed writing customers to CSV: %v", err))
+		messenger.ExitWithError(err)
 	}
 
 	fmt.Println(color.GreenString("\nExported %v customers  🎉\n", len(customers)))

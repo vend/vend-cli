@@ -3,7 +3,7 @@ package vend
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"time"
 )
 
@@ -30,9 +30,13 @@ func (c *Client) Outlets() ([]Outlet, map[string][]Outlet, error) {
 
 	// v is a version that is used to get outlets by page.
 	data, v, err := c.ResourcePage(0, "GET", "outlets")
+	if err != nil {
+		return outlets, nil, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return outlets, nil, err
 	}
 
 	outlets = append(outlets, page...)
@@ -41,7 +45,14 @@ func (c *Client) Outlets() ([]Outlet, map[string][]Outlet, error) {
 	for len(page) > 0 {
 		page = []Outlet{}
 		data, v, err = c.ResourcePage(v, "GET", "outlets")
+		if err != nil {
+			return outlets, nil, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return outlets, nil, err
+		}
 		outlets = append(outlets, page...)
 	}
 

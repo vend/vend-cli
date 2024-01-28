@@ -3,9 +3,10 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -39,8 +40,8 @@ func getStoreCredits() {
 	fmt.Println("\nRetrieving Store Credits from Vend...")
 	storeCredits, err := vc.StoreCredits()
 	if err != nil {
-		log.Printf("Failed while retrieving store credits: %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed while retrieving store credits: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// // Find Customer ID from Customer Code
@@ -55,8 +56,8 @@ func getStoreCredits() {
 	fmt.Println("Writing Store Credits to CSV file...")
 	err = scWriterFile(storeCredits)
 	if err != nil {
-		log.Printf("Failed while writing Store Credits to CSV: %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed while writing Store Credits to CSV: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	fmt.Println(color.GreenString("\nExported %v Store Credits\n", len(storeCredits)))
@@ -69,8 +70,8 @@ func scWriterFile(sc []vend.StoreCredit) error {
 	fileName := fmt.Sprintf("%s_storecredit_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Printf("Failed to create CSV: %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to create CSV: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Ensure the file is closed at the end.

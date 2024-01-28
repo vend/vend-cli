@@ -3,7 +3,7 @@ package vend
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"time"
 )
 
@@ -30,9 +30,13 @@ func (c *Client) Registers() ([]Register, error) {
 
 	// v is a version that is used to get registers by page.
 	data, v, err := c.ResourcePage(0, "GET", "registers")
+	if err != nil {
+		return registers, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return registers, err
 	}
 
 	registers = append(registers, page...)

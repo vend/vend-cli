@@ -3,9 +3,10 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -38,14 +39,14 @@ func exportOutlets() {
 	// Get Outlets
 	outlets, _, err := vc.Outlets()
 	if err != nil {
-		log.Printf("Failed retrieving outlets from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving outlets from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	file, err := createOutletReport(DomainPrefix)
 	if err != nil {
-		log.Printf("Failed creating CSV file %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed creating CSV file %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	file = addHeaderOutletReport(file)
