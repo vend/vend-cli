@@ -3,9 +3,10 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -44,30 +45,30 @@ func getAuditLog() {
 	layout := "2006-01-02T15:04:05"
 	_, err := time.Parse(layout, dateFrom)
 	if err != nil {
-		log.Printf("incorrect date from: %v, %v", dateFrom, err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("incorrect date from: %v, %v", dateFrom, err)
+		messenger.ExitWithError(err)
 	}
 
 	_, err = time.Parse(layout, dateTo)
 	if err != nil {
-		log.Printf("incorrect date to: %v, %v", dateTo, err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("incorrect date to: %v, %v", dateTo, err)
+		messenger.ExitWithError(err)
 	}
 
 	// Get log
 	fmt.Println("\nRetrieving Audit Log from Vend...")
 	audit, err := vc.AuditLog(dateFrom, dateTo)
 	if err != nil {
-		log.Printf("failed retrieving audit log from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed retrieving audit log from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Write log to CSV
 	fmt.Println("Writing log to CSV file...")
 	err = aWriteFile(audit)
 	if err != nil {
-		log.Printf("failed writing audit log to CSV %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed writing audit log to CSV %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))

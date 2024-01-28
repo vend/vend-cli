@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vend/govend/vend"
+	"github.com/vend/vend-cli/pkg/messenger"
 )
 
 const version = "1.8"
@@ -47,8 +48,7 @@ func init() {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		panic(vend.Exit{1})
+		messenger.ExitWithError(err)
 	}
 }
 
@@ -61,8 +61,7 @@ func initConfig() {
 		// Find home directory.
 		home, err := homedir.Dir()
 		if err != nil {
-			fmt.Println(err)
-			panic(vend.Exit{1})
+			messenger.ExitWithError(err)
 		}
 
 		// Search config in home directory with name ".vend" (without extension).

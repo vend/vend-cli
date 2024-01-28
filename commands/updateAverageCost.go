@@ -3,12 +3,13 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -90,8 +91,8 @@ func printAverageCostTemplate() {
 
 	file, err := createAverageCostTemplate(DomainPrefix)
 	if err != nil {
-		log.Printf("Failed creating CSV file %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed creating CSV file %v", err)
+		messenger.ExitWithError(err)
 	}
 	file = addHeadeToTemplate(file, outlets, maxSupplier)
 	file = writeAverageCostTemplate(file, outlets, products, recordsMap, maxSupplier)
@@ -133,13 +134,13 @@ func getInfoForTemplate() ([]vend.Outlet, []vend.Product, map[string]map[string]
 
 	// Check for errors in fetching outlets and products
 	if outletsErr != nil {
-		log.Printf("Failed retrieving outlets: %v", outletsErr)
-		panic(vend.Exit{1})
+		err := fmt.Errorf("Failed retrieving outlets: %v", outletsErr)
+		messenger.ExitWithError(err)
 	}
 
 	if productsErr != nil {
-		log.Printf("Failed retrieving products: %v", productsErr)
-		panic(vend.Exit{1})
+		err := fmt.Errorf("Failed retrieving products: %v", productsErr)
+		messenger.ExitWithError(err)
 	}
 
 	if InventoryRecordsErr != nil {
@@ -314,23 +315,22 @@ func parseUpdateAverageCostMode(mode string) bool {
 		if len(avgCostFilePath) > 0 {
 			return true
 		} else {
-			fmt.Println("Please provide a filename")
-			fmt.Printf("Example:\n%s\n", color.GreenString("vendcli update-average-cost -d DOMAINPREFIX -t TOKEN -m update -f FILENAME.csv"))
-			panic(vend.Exit{1})
+			err := fmt.Errorf("Please provide a filename:\nExample:\n%s\n", color.GreenString("vendcli update-average-cost -d DOMAINPREFIX -t TOKEN -m update -f FILENAME.csv"))
+			messenger.ExitWithError(err)
 		}
 	case "print-template":
 		return false
 	default:
-		fmt.Println("Invalid mode. Please use either 'update' or 'print-template'")
-		panic(vend.Exit{1})
+		err := fmt.Errorf("Invalid mode. Please use either 'update' or 'print-template'")
+		messenger.ExitWithError(err)
 	}
+	return false
 }
 
 func readAverageCostCSVFile(pathToFile string) []ProductCost {
 	records, err := openAverageCostCSVFile(pathToFile)
 	if err != nil {
-		fmt.Println(err)
-		panic(vend.Exit{1})
+		messenger.ExitWithError(err)
 	}
 
 	checkAverageCostCSVHeader(records)
@@ -366,16 +366,14 @@ func openAverageCostCSVFile(pathToFile string) ([][]string, error) {
 	// Open the file
 	csvFile, err := os.Open(pathToFile)
 	if err != nil {
-		fmt.Println(err)
-		panic(vend.Exit{1})
+		messenger.ExitWithError(err)
 	}
 	defer csvFile.Close()
 
 	reader := csv.NewReader(csvFile)
 	records, err := reader.ReadAll()
 	if err != nil {
-		fmt.Println(err)
-		panic(vend.Exit{1})
+		messenger.ExitWithError(err)
 	}
 
 	return records, nil
@@ -385,9 +383,8 @@ func openAverageCostCSVFile(pathToFile string) ([][]string, error) {
 func checkAverageCostCSVHeader(records [][]string) {
 	// check if the first column has "product_id", and the number of columns is odd
 	if len(records) == 0 || len(records[0]) < 2 || records[0][0] != "product_id" || len(records[0])%2 == 0 {
-		fmt.Println("Warning: Incorrect header format. Expected format: 'product_id, outlet_id, cost, ...'")
-		fmt.Println("Example header: 'product_id, outlet_id1, cost_1, outlet_id2, cost_2, ...'")
-		panic(vend.Exit{1})
+		err := fmt.Errorf("Warning: Incorrect header format. Expected format: 'product_id, outlet_id, cost, ...'")
+		messenger.ExitWithError(err)
 	}
 }
 

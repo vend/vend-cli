@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vend/vend-cli/pkg/messenger"
+
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -65,23 +67,23 @@ func voidGiftCards() {
 	// Get user ID from token. This also checks if the token is valid.
 	user, err := vc.User()
 	if err != nil {
-		fmt.Printf("Failed to get user ID from token - check your token")
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to get user ID from token - check your token")
+		messenger.ExitWithError(err)
 	}
 
 	// Fetch gift card data
 	giftCards, err := vc.GiftCards()
 	if err != nil {
-		fmt.Printf("Failed to fetch gift card data: %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to fetch gift card data: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Get Gift Card Numbers from CSV
 	fmt.Printf("\nReading Gift Card CSV\n")
 	ids, err := readGiftCardCSV(FilePath)
 	if err != nil {
-		fmt.Printf("Failed to get gift card numbers from the file: %s", FilePath)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to get gift card numbers from the file: %s", FilePath)
+		messenger.ExitWithError(err)
 	}
 
 	giftCardBalances := makeGCHash(giftCards)
@@ -90,8 +92,8 @@ func voidGiftCards() {
 	if user.ID != nil {
 		userID = *user.ID
 	} else {
-		fmt.Printf("Failed to get user ID from token - check your token")
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to get user ID from token - check your token")
+		messenger.ExitWithError(err)
 	}
 
 	// Voiding Gift Cards
@@ -204,9 +206,9 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
 			fmt.Println("Found error in header rows.")
-			fmt.Printf("No header match for: %s Instead got: %s.\n",
+			err = fmt.Errorf("Found error in header rows.\nNo header match for: %s Instead got: %s.\n",
 				string(headers[i]), string(headerRow[i]))
-			panic(vend.Exit{1})
+			messenger.ExitWithError(err)
 		}
 	}
 

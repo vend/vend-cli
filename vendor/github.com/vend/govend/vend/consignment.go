@@ -3,7 +3,7 @@ package vend
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"time"
 )
 
@@ -34,9 +34,13 @@ func (c *Client) Consignments() ([]Consignment, error) {
 
 	// v is a version that is used to objects by page.
 	data, v, err := c.ResourcePage(0, "GET", "consignments")
+	if err != nil {
+		return consignments, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return consignments, err
 	}
 
 	consignments = append(consignments, page...)
@@ -45,7 +49,14 @@ func (c *Client) Consignments() ([]Consignment, error) {
 	for len(data) > 2 {
 		page = []Consignment{}
 		data, v, err = c.ResourcePage(v, "GET", "consignments")
+		if err != nil {
+			return consignments, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return consignments, err
+		}
 		consignments = append(consignments, page...)
 	}
 

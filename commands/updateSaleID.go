@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/messenger"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
@@ -64,8 +66,8 @@ func updateSaleID() {
 	logFileName := fmt.Sprintf("%s_post_in_case_of_emergency_%v.txt", DomainPrefix, time.Now().Unix())
 	logFile, err := os.OpenFile(fmt.Sprintf("./%s", logFileName), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		log.Printf("error:%s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("error:%s", err)
+		messenger.ExitWithError(err)
 	}
 	log.SetOutput(logFile)
 

@@ -3,8 +3,9 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -44,15 +45,15 @@ func importSuppliers() {
 	fmt.Println("\nReading Supplier CSV...")
 	suppliers, err := readSupplierCSV(FilePath)
 	if err != nil {
-		log.Printf("Couldnt read Supplier CSV file, %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Couldnt read Supplier CSV file, %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Post Suppliers to Vend
 	err = postSuppliers(suppliers)
 	if err != nil {
-		log.Printf("Failed to post Suppliers, %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to post Suppliers, %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))
@@ -89,10 +90,9 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	// Check each header in the row is same as our template.
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
-			fmt.Println("Found error in header rows.")
-			log.Printf("No header match for: %s Instead got: %s.",
+			err = fmt.Errorf("Found error in header rows.\nNo header match for: %s Instead got: %s.",
 				string(headers[i]), string(headerRow[i]))
-			panic(vend.Exit{1})
+			messenger.ExitWithError(err)
 
 		}
 	}

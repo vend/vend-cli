@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -41,8 +42,8 @@ func deleteProducts() {
 	fmt.Println("\nReading CSV...")
 	ids, err := readCSV(FilePath)
 	if err != nil {
-		log.Printf(color.RedString("Failed to get ids from the file: %s", FilePath))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to get ids from the file: %s", FilePath)
+		messenger.ExitWithError(err)
 	}
 
 	// Make the requests

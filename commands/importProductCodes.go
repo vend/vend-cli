@@ -3,10 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -67,15 +68,15 @@ func importProductCodes() {
 	fmt.Println("Reading product codes CSV...")
 	productCodes, err := readProductCodesCSV(FilePath)
 	if err != nil {
-		log.Printf("Couldnt read Product Code CSV file, %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Couldnt read Product Code CSV file, %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Post Product Codes to Vend
 	err = postProductCodes(productCodes)
 	if err != nil {
-		log.Printf("Failed to post product codes, %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to post product codes, %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))

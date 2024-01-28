@@ -51,13 +51,14 @@ func (c *Client) ConsignmentProducts(consignments *[]Consignment) ([]Consignment
 
 		body, err := c.MakeRequest("GET", URL, nil)
 		if err != nil {
-			fmt.Printf("Error getting resource: %s", err)
+			err = fmt.Errorf("Error getting resource: %s", err)
+			return []ConsignmentProduct{}, nil, err
 		}
 
 		// Decode the JSON into our defined consignment object.
 		err = json.Unmarshal(body, &response)
 		if err != nil {
-			fmt.Printf("\nError unmarshalling Vend consignment payload: %s", err)
+			err = fmt.Errorf("\nError unmarshalling Vend consignment payload: %s", err)
 			return []ConsignmentProduct{}, nil, err
 		}
 

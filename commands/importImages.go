@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/messenger"
+
 	"github.com/fatih/color"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -55,8 +57,8 @@ func importImages(FilePath string) {
 	fmt.Println("\nReading products from CSV file...")
 	productsFromCSV, err := ReadImageCSV(FilePath)
 	if err != nil {
-		log.Printf("Error reading CSV file")
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error reading CSV file")
+		messenger.ExitWithError(err)
 	}
 
 	// Get all products from Vend.
@@ -292,7 +294,8 @@ func urlGet(url string) ([]byte, error) {
 	defer res.Body.Close()
 
 	// Check HTTP response.
-	if !vend.ResponseCheck(res.StatusCode) {
+	err = vend.ResponseCheck(res.StatusCode)
+	if err != nil {
 		fmt.Printf("Status Code: %v", res.StatusCode)
 		return nil, err
 	}
@@ -344,8 +347,8 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 		// Copying image binary to form file.
 		_, err = io.Copy(part, file)
 		if err != nil {
-			log.Printf("Error copying file for requst body: %s", err)
-			panic(vend.Exit{1})
+			err = fmt.Errorf("Error copying file for requst body: %s", err)
+			messenger.ExitWithError(err)
 		}
 
 		err = writer.Close()
@@ -387,7 +390,8 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 			}
 		}
 		// Add status code check
-		if !vend.ResponseCheck(res.StatusCode) {
+		err = vend.ResponseCheck(res.StatusCode)
+		if err != nil {
 			response := vend.Errors{}
 			resBody, _ := ioutil.ReadAll(res.Body)
 			json.Unmarshal(resBody, &response)
@@ -409,8 +413,8 @@ func UploadImage(imagePath string, product vend.ProductUpload) error {
 		response := vend.ImageUpload{}
 		err = json.Unmarshal(resBody, &response)
 		if err != nil {
-			fmt.Println("error sourcing image - please check the image URL. Image links must be a direct link to the image.")
-			panic(vend.Exit{1})
+			err = fmt.Errorf("error sourcing image - please check the image URL. Image links must be a direct link to the image.")
+			messenger.ExitWithError(err)
 			return err
 		}
 

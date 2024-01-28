@@ -4,7 +4,6 @@ package vend
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 )
 
 // Product is a basic product object based on /2.0/products endpoint
@@ -201,9 +200,12 @@ func (c *Client) Products() ([]Product, map[string]Product, error) {
 
 	// v is a version that is used to get products by page.
 	data, v, err := c.ResourcePage(0, "GET", "products")
+	if err != nil {
+		return products, productMap, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		return products, productMap, err
 	}
 
 	products = append(products, page...)
@@ -212,7 +214,13 @@ func (c *Client) Products() ([]Product, map[string]Product, error) {
 	for len(page) > 0 {
 		page = []Product{}
 		data, v, err = c.ResourcePage(v, "GET", "products")
+		if err != nil {
+			return products, productMap, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			return products, productMap, err
+		}
 		products = append(products, page...)
 	}
 
@@ -237,9 +245,13 @@ func (c *Client) Tags() (map[string]string, error) {
 	page := []Tags{}
 
 	data, v, err := c.ResourcePage(0, "GET", "tags")
+	if err != nil {
+		return nil, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return nil, err
 	}
 
 	tags = append(tags, page...)

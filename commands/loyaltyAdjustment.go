@@ -3,8 +3,9 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -44,8 +45,8 @@ func loyaltyAdjustment() {
 	fmt.Println("\nReading Loyalty Adjustment CSV...")
 	loyaltyAdjustments, err := readLoyaltyAdjustmentCSV(FilePath)
 	if err != nil {
-		log.Printf("Couldnt read Loyalty Adjustment CSV file,  %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Couldnt read Loyalty Adjustment CSV file,  %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Posting Adjustments to Vend
@@ -93,10 +94,9 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	// Check each header in the row is same as our template.
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
-			fmt.Println("Found error in header rows.")
-			log.Printf("No header match for: %s Instead got: %s.",
+			err = fmt.Errorf("Found error in hearder rows.\nNo header match for: %s Instead got: %s.",
 				string(headers[i]), string(headerRow[i]))
-			panic(vend.Exit{1})
+			messenger.ExitWithError(err)
 
 		}
 	}

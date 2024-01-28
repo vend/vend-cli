@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/vend/vend-cli/pkg/messenger"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
@@ -42,7 +44,7 @@ func deleteImages() {
 	ids, err := readCSV(FilePath)
 	if err != nil {
 		log.Printf(color.RedString("Failed to get IDs from the file: %s", FilePath))
-		panic(vend.Exit{1})
+		messenger.ExitWithError(err)
 	}
 
 	// Make the requests
