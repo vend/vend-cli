@@ -3,7 +3,7 @@ package vend
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 )
 
 // Vend API Docs: https://docs.vendhq.com/v0.9/reference#customers-2
@@ -69,9 +69,13 @@ func (c *Client) Customers() ([]Customer, error) {
 
 	// v is a version that is used to get customers by page.
 	data, v, err := c.ResourcePage(0, "GET", "customers")
+	if err != nil {
+		return customers, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return customers, err
 	}
 
 	customers = append(customers, page...)
@@ -80,7 +84,14 @@ func (c *Client) Customers() ([]Customer, error) {
 	for len(page) > 0 {
 		page = []Customer{}
 		data, v, err = c.ResourcePage(v, "GET", "customers")
+		if err != nil {
+			return customers, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return customers, err
+		}
 		customers = append(customers, page...)
 	}
 
@@ -92,9 +103,13 @@ func (c *Client) CustomerGroups() (map[string]string, error) {
 	page := []CustomerGroups{}
 
 	data, v, err := c.ResourcePage(0, "GET", "customer_groups")
+	if err != nil {
+		return nil, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return nil, err
 	}
 
 	groups = append(groups, page...)
@@ -102,7 +117,14 @@ func (c *Client) CustomerGroups() (map[string]string, error) {
 	for len(page) > 0 {
 		page = []CustomerGroups{}
 		data, v, err = c.ResourcePage(v, "GET", "customer_groups")
+		if err != nil {
+			return nil, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return nil, err
+		}
 		groups = append(groups, page...)
 
 	}

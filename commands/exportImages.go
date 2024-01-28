@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/messenger"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
@@ -58,16 +60,16 @@ func getAllImages() {
 	fmt.Println("\nRetrieving Images from Vend...")
 	images, _, err := vc.Products()
 	if err != nil {
-		log.Printf(color.RedString("Failed while retrieving images: %v", err))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed while retrieving images: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Write to CSV
 	fmt.Println("Writing images to CSV file...")
 	err = iWriteFile(images, detailsBool)
 	if err != nil {
-		log.Printf(color.RedString("Failed while writing images to CSV: %v", err))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed while writing images to CSV: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))
@@ -82,8 +84,8 @@ func iWriteFile(products []vend.Product, details bool) error {
 	fileName := fmt.Sprintf("%s_image_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Printf("Failed to create CSV: %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed to create CSV: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Ensure the file is closed at the end.

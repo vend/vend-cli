@@ -3,7 +3,6 @@ package vend
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -130,9 +129,12 @@ func salesAfterVersion(version int64, c *Client) ([]Sale, error) {
 
 	// v is a version that is used to get customers by page.
 	data, v, err := c.ResourcePage(version, "GET", "sales")
+	if err != nil {
+		return sales, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		fmt.Errorf("error while unmarshalling: %s", err)
 	}
 
 	sales = append(sales, page...)
@@ -141,7 +143,14 @@ func salesAfterVersion(version int64, c *Client) ([]Sale, error) {
 	for len(page) > 0 {
 		page = []Sale{}
 		data, v, err = c.ResourcePage(v, "GET", "sales")
+		if err != nil {
+			return sales, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return sales, err
+		}
 		sales = append(sales, page...)
 	}
 
@@ -170,7 +179,7 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Printf("Error unmarshalling payload: %s", err)
+		err = fmt.Errorf("Error unmarshalling payload: %s", err)
 		return 0, err
 	}
 

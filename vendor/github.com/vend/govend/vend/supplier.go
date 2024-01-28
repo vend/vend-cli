@@ -82,14 +82,15 @@ func (c Client) Pages(resource string, page int64) ([]SupplierBase, bool, int64,
 
 	body, err := c.MakeRequest("GET", url, nil)
 	if err != nil {
-		fmt.Printf("Error getting resource: %s", err)
+		err = fmt.Errorf("Error getting resource: %s", err)
+		return nil, false, 0, err
 	}
 
 	// Decode the raw JSON.
 	response := SupplierCollectionResponse{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Printf("\nError unmarshalling payload: %s", err)
+		err = fmt.Errorf("Error unmarshalling payload: %w", err)
 		return nil, false, 0, err
 	}
 

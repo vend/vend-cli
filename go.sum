@@ -204,8 +204,8 @@ github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/vbauerster/mpb/v8 v8.7.2 h1:SMJtxhNho1MV3OuFgS1DAzhANN1Ejc5Ct+0iSaIkB14=
 github.com/vbauerster/mpb/v8 v8.7.2/go.mod h1:ZFnrjzspgDHoxYLGvxIruiNk73GNTPG4YHgVNpR10VY=
-github.com/vend/govend v0.4.1 h1:ZAbKETReHPrmJruJL9/3GPpRzFlALJsFVMTG7pjuZEE=
-github.com/vend/govend v0.4.1/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
+github.com/vend/govend v0.5.0 h1:KsvKs9wru3RW9/5etafQZsp06P4OGjsdBXY/jK8tJ2U=
+github.com/vend/govend v0.5.0/go.mod h1:aQ2GJpu83dBAhnWesMXy9cxW7TOWcHgMAu/PQ33CPv4=
 github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3 h1:nxWV9UNdGHW3OezVTq99ak99RvqMM+H+oG+aKNraxT4=
 github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3/go.mod h1:P0XJ0/hGOuePFbpFCHyzHMls2afcv32GHlmL/VuIpHg=
 github.com/wallclockbuilder/testify v0.0.0-20150512124233-dab07ac62d49 h1:2q+dCr8jqV705ORsqrqTATbsXAUQbYr6iSnPY7EVzWY=

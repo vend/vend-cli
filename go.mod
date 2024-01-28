@@ -11,7 +11,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.3.0
 	github.com/vbauerster/mpb/v8 v8.7.2
-	github.com/vend/govend v0.4.1
+	github.com/vend/govend v0.5.0
 	github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3
 )
 

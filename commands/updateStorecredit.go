@@ -3,10 +3,11 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
 	"github.com/google/uuid"
@@ -74,8 +75,8 @@ func updateStoreCredit() {
 	// Test mode option is set correctly
 	submitMode = strings.ToLower(submitMode)
 	if !(submitMode == "adjust" || submitMode == "replace") {
-		log.Printf("'%s' is not a valid option for -m mode. Mode should be 'adjust' or replace'", submitMode)
-		panic(vend.Exit{1})
+		err := fmt.Errorf("'%s' is not a valid option for -m mode. Mode should be 'adjust' or replace'", submitMode)
+		messenger.ExitWithError(err)
 	}
 
 	// Create new Vend Client.
@@ -87,8 +88,8 @@ func updateStoreCredit() {
 	fmt.Println("\nReading Store Credits CSV...")
 	csvRows, usesCustomerCodes, err := readStoreCreditCSV(FilePath, submitMode)
 	if err != nil {
-		log.Printf(color.RedString("Couldnt read Store Credits CSV file,  %s", err))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Couldnt read Store Credits CSV file,  %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	// if there are submitted customer_codes, convert them to customer_id
@@ -96,8 +97,8 @@ func updateStoreCredit() {
 		fmt.Println("CSV contains customer codes, setting customer ids..")
 		csvRows, err = getCustomerIDs(vc, csvRows)
 		if err != nil {
-			log.Printf("not able to map customer ids to codes", err)
-			panic(vend.Exit{1})
+			err = fmt.Errorf("not able to map customer ids to codes", err)
+			messenger.ExitWithError(err)
 		}
 	}
 
@@ -135,8 +136,8 @@ func readStoreCreditCSV(filePath string, submitMode string) ([]vend.StoreCreditC
 		errorMsg := `error opening csv file - please check you've specified the right file
 
 Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
-		fmt.Println(errorMsg, "\n")
-		panic(vend.Exit{1})
+		err = fmt.Errorf(errorMsg, "\n")
+		messenger.ExitWithError(err)
 	}
 	// Make sure to close at end
 	defer file.Close()
@@ -147,8 +148,8 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	// Read and store our header line.
 	headerRow, err := reader.Read()
 	if err != nil {
-		log.Printf("Error reading header row")
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error reading header row")
+		messenger.ExitWithError(err)
 	}
 
 	// Check each header in the row is same as our template. Fail if not
@@ -157,8 +158,8 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	// Read the rest of the data from the CSV
 	rawData, err := reader.ReadAll()
 	if err != nil {
-		log.Printf("Error reading data from csv", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error reading data from csv", err)
+		messenger.ExitWithError(err)
 	}
 
 	var csvStructs []vend.StoreCreditCsv
@@ -226,8 +227,8 @@ func getPrimaryAdmin(vc vend.Client) string {
 	// Get Users.
 	users, err := vc.Users()
 	if err != nil {
-		log.Printf("Failed retrieving Users from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving Users from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	var primaryAdmin string
@@ -253,9 +254,9 @@ func checkHeaders(submitMode string, headerRow []string) {
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
 			fmt.Println(color.RedString("Found error in header rows."))
-			log.Printf("\n\n 🛑 Looks like we have a mismatch in headers, this mode (%s) needs three headers: customer_id, customer_code, %s \n No header match for: %s instead got: %s \n\n",
+			err := fmt.Errorf("Found error in header rows.\n\n 🛑 Looks like we have a mismatch in headers, this mode (%s) needs three headers: customer_id, customer_code, %s \n No header match for: %s instead got: %s \n\n",
 				submitMode, string(headers[2]), string(headers[i]), string(headerRow[i]))
-			panic(vend.Exit{1})
+			messenger.ExitWithError(err)
 		}
 	}
 
@@ -267,8 +268,8 @@ func getCustomerIDs(vc vend.Client, csvRows []vend.StoreCreditCsv) ([]vend.Store
 	// Get Customers
 	customers, err := vc.Customers()
 	if err != nil {
-		log.Printf("Failed retrieving customers from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed retrieving customers from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Build Customer Map
@@ -303,8 +304,8 @@ func updateAmounts(vc vend.Client, csvRows []vend.StoreCreditCsv) error {
 	// get current balances
 	storeCredits, err := vc.StoreCredits()
 	if err != nil {
-		log.Printf("Failed while retrieving store credits: %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Failed while retrieving store credits: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// make customer id -> customer balance map

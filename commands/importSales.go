@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/messenger"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
@@ -77,8 +79,8 @@ func importSales() {
 	// fetch the jsons from file and store them into interfaces
 	erroredSales, err := readJSONFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading json file:\n%s\n", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error reading json file:\n%s\n", err)
+		messenger.ExitWithError(err)
 	}
 
 	if isPostMode {
@@ -92,8 +94,8 @@ func importSales() {
 		fmt.Printf("\nRunning command in parse mode\n")
 		// 1970-01-01T00:00:00Z is just a dummy date to validate the timezone
 		if len(timeZoneImportSales) == 0 {
-			fmt.Println("Timezone is required for parse mode")
-			panic(vend.Exit{1})
+			err = fmt.Errorf("Timezone is required for parse mode")
+			messenger.ExitWithError(err)
 		} else {
 			validateTimeZone("1970-01-01T00:00:00Z", timeZone)
 			parseSales(erroredSales)
@@ -107,8 +109,8 @@ func readJSONFile(jsonFilePath string) ([]vend.Sale9, error) {
 	// Open our jsonFile
 	jsonFile, err := os.Open(jsonFilePath)
 	if err != nil {
-		fmt.Printf("Error opening json file:\n%s\n", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error opening json file:\n%s\n", err)
+		messenger.ExitWithError(err)
 	}
 
 	// defer closing jsonFile so we can parse it
@@ -117,15 +119,15 @@ func readJSONFile(jsonFilePath string) ([]vend.Sale9, error) {
 	// read our opened jsonFile as a byte array
 	fileContent, err := io.ReadAll(jsonFile)
 	if err != nil {
-		fmt.Printf("Error reading json file:\n%s\n", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error reading json file:\n%s\n", err)
+		messenger.ExitWithError(err)
 	}
 
 	// parse json file
 	data, err := parseJsonFile(fileContent)
 	if err != nil {
-		fmt.Printf("Error parsing json file:\n%s\n", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error parsing json file:\n%s\n", err)
+		messenger.ExitWithError(err)
 	}
 
 	// convert generic interface to []vend.Sale9
@@ -196,8 +198,8 @@ func parseJsonFile(fileContent []byte) (interface{}, error) {
 func parseSales(sales9 []vend.Sale9) {
 	sales, err := vend.ConvertSale9ToSale(sales9)
 	if err != nil {
-		fmt.Printf("Error converting sales:\n%s\n", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error converting sales:\n%s\n", err)
+		messenger.ExitWithError(err)
 	}
 	sortBySaleDate(sales)
 
@@ -207,8 +209,8 @@ func parseSales(sales9 []vend.Sale9) {
 	// Create report
 	file, err := createErredSalesReport()
 	if err != nil {
-		fmt.Printf("Error creating CSV file:\n%s\n", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error creating CSV file:\n%s\n", err)
+		messenger.ExitWithError(err)
 	}
 
 	defer file.Close()
@@ -329,8 +331,8 @@ func createErredSalesReport() (*os.File, error) {
 	fileName := fmt.Sprintf("erred_sales%s_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		fmt.Printf("Error creating CSV file: %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("Error creating CSV file: %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	writer := csv.NewWriter(file)
@@ -354,7 +356,8 @@ func validateModeFlag(m string) bool {
 	} else if m == "post" {
 		return true
 	} else {
-		fmt.Printf("'%s' is not a valid option for -m mode. Mode should be 'parse' or 'post'\n", m)
-		panic(vend.Exit{1})
+		err := fmt.Errorf("'%s' is not a valid option for -m mode. Mode should be 'parse' or 'post'\n", m)
+		messenger.ExitWithError(err)
 	}
+	return false
 }

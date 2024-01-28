@@ -2,7 +2,7 @@ package vend
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 )
 
 // Inventory struct houses Inventory data
@@ -26,9 +26,13 @@ func (c *Client) Inventory() ([]InventoryRecord, error) {
 
 	// v is a version that is used to get registers by page.
 	data, v, err := c.ResourcePage(0, "GET", "inventory")
+	if err != nil {
+		return inventoryRecords, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return inventoryRecords, err
 	}
 
 	inventoryRecords = append(inventoryRecords, page...)
@@ -37,9 +41,13 @@ func (c *Client) Inventory() ([]InventoryRecord, error) {
 	for len(page) > 0 {
 		page = []InventoryRecord{}
 		data, v, err = c.ResourcePage(v, "GET", "inventory")
+		if err != nil {
+			return inventoryRecords, err
+		}
 		err = json.Unmarshal(data, &page)
 		if err != nil {
-			log.Printf("error while unmarshalling: %s", err)
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return inventoryRecords, err
 		}
 		inventoryRecords = append(inventoryRecords, page...)
 	}
