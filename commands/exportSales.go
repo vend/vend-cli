@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strconv"
@@ -16,6 +15,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 )
 
 type SaleResults struct {
@@ -70,6 +70,7 @@ func init() {
 func getAllSales() {
 	// Create a new Vend Client
 	vc := vend.NewClient(Token, DomainPrefix, timeZone)
+	fmt.Println("Creating Sales Reports...")
 
 	// Validate date input
 	validateDateInput(dateFrom, "date from")
@@ -78,60 +79,164 @@ func getAllSales() {
 	// Validate provided timezone
 	validateTimeZone(dateTo+"T00:00:00Z", timeZone)
 
-	// Pull data from Vend
-	fmt.Println("\nRetrieving data from Vend...")
-
-	// Get outlets and lookup outlet name by id
-	oidToOutletName := getOutletsAndOutletNameMap(vc)
-
-	// Check if the provided outlet exists
-	if outlet != "all" && !validOutlet(outlet, oidToOutletName) {
-		fmt.Printf(color.RedString("\n'%s' Outlet does not exist in the '%s' account\n\n", outlet, DomainPrefix))
-		return
-	}
-
 	// Filter the sales by date range and outlet
 	utcDateFrom, utcDateTo, versionAfter := prepareDateAndVersion(vc)
 
 	// Get all sales data
 	sales, registers, users, customers, customerGroupMap, products := getAllSalesData(vc, versionAfter)
 
-	fmt.Printf("\nFiltering sales by outlet and date range...\n")
+	// Get outlets and lookup outlet name by id
+	oidToOutletName := getOutletsAndOutletNameMap(vc)
+
+	// Check if the provided outlet exists
+	if outlet != "all" && !validOutlet(outlet, oidToOutletName) {
+		err := fmt.Errorf("\n'%s' Outlet does not exist in the '%s' account\n\n", outlet, DomainPrefix)
+		messenger.ExitWithError(err)
+	}
 
 	// Process outlets
 	processOutlets(vc, oidToOutletName, sales, utcDateFrom, utcDateTo, registers, users, customers, customerGroupMap, products)
 }
 
 func getAllSalesData(vc vend.Client, versionAfter int64) ([]vend.Sale, []vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
+	// Pull data from Vend
+	fmt.Println("\nRetrieving data from Vend...")
 	var wg sync.WaitGroup
-	saleResults := make(chan SaleResults, 2)
+	routines := 6
+	p := pbar.CreateMultiBarGroup(&wg)
+	saleResults := make(chan SaleResults, routines)
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
+
+		bar, err := p.AddIndeterminateProgressBar("Sales")
+		if err != nil {
+			fmt.Println(err)
+		}
+		done := make(chan struct{})
+
+		go bar.AnimateIndeterminateBar(done)
+
 		sales, err := vc.SalesAfter(versionAfter)
+		close(done)
+		if err != nil {
+			bar.AbortBar()
+		}
+		bar.SetIndeterminateBarComplete()
 		saleResults <- SaleResults{sales: sales, err: err}
 	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done() // Finish the goroutine when we're done
-		registers, users, customers, customerGroupMap, products := GetVendDataForSalesReport(vc)
-		saleResults <- SaleResults{registers: registers, users: users, customers: customers, customerGroupMap: customerGroupMap, products: products}
+		bar, err := p.AddIndeterminateProgressBar("Registers")
+		if err != nil {
+			fmt.Println(err)
+		}
+		done := make(chan struct{})
+
+		go bar.AnimateIndeterminateBar(done)
+		registers, err := vc.Registers()
+		close(done)
+		if err != nil {
+			bar.AbortBar()
+		}
+		bar.SetIndeterminateBarComplete()
+		saleResults <- SaleResults{registers: registers, err: err}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		bar, err := p.AddIndeterminateProgressBar("Users")
+		if err != nil {
+			fmt.Println(err)
+		}
+		done := make(chan struct{})
+
+		go bar.AnimateIndeterminateBar(done)
+		users, err := vc.Users()
+		close(done)
+		if err != nil {
+			bar.AbortBar()
+		}
+		bar.SetIndeterminateBarComplete()
+		saleResults <- SaleResults{users: users, err: err}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		bar, err := p.AddIndeterminateProgressBar("Customers")
+		if err != nil {
+			fmt.Println(err)
+		}
+		done := make(chan struct{})
+
+		go bar.AnimateIndeterminateBar(done)
+		customers, err := vc.Customers()
+		close(done)
+		if err != nil {
+			bar.AbortBar()
+		}
+		bar.SetIndeterminateBarComplete()
+		saleResults <- SaleResults{customers: customers, err: err}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		bar, err := p.AddIndeterminateProgressBar("Customer Groups")
+		if err != nil {
+			fmt.Println(err)
+		}
+		done := make(chan struct{})
+
+		go bar.AnimateIndeterminateBar(done)
+		customerGroupMap, err := vc.CustomerGroups()
+		close(done)
+		if err != nil {
+			bar.AbortBar()
+		}
+		bar.SetIndeterminateBarComplete()
+		saleResults <- SaleResults{customerGroupMap: customerGroupMap, err: err}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Finish the goroutine when we're done
+		bar, err := p.AddIndeterminateProgressBar("Products")
+		if err != nil {
+			fmt.Println(err)
+		}
+		done := make(chan struct{})
+
+		go bar.AnimateIndeterminateBar(done)
+		products, _, err := vc.Products()
+		close(done)
+		if err != nil {
+			bar.AbortBar()
+		}
+		bar.SetIndeterminateBarComplete()
+		saleResults <- SaleResults{products: products, err: err}
 	}()
 	// Launch a goroutine to close the res channel after all other goroutines complete
 	go func() {
 		wg.Wait()
 		close(saleResults)
 	}()
+	p.Wait()
 	var sales []vend.Sale
 	var registers []vend.Register
 	var users []vend.User
 	var customers []vend.Customer
 	customerGroupMap := make(map[string]string)
 	var products []vend.Product
-	for i := 0; i < 2; i++ {
+	for i := 0; i < routines; i++ {
 		s := <-saleResults
 		if s.err != nil {
-			log.Printf(color.RedString("Failed to get data: %v", s.err))
+			err := fmt.Errorf(color.RedString("Failed to get data: %v", s.err))
+			messenger.ExitWithError(err)
 			return nil, nil, nil, nil, nil, nil
 		}
 		sales = append(sales, s.sales...)
@@ -147,19 +252,42 @@ func getAllSalesData(vc vend.Client, versionAfter int64) ([]vend.Sale, []vend.Re
 }
 
 func processOutlets(vc vend.Client, oidToOutletName map[string]string, sales []vend.Sale, utcDateFrom, utcDateTo string, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
-	allOutletsName := getAllOutletsToProcess(oidToOutletName)
 
+	allOutletsName := getAllOutletsToProcess(oidToOutletName)
+	filteredSalesMap := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName)
+
+	fmt.Println("\nWriting CSVs...")
+	var skippedOutlets []string
 	var wg sync.WaitGroup
+	p := pbar.CreateMultiBarGroup(&wg)
 	for _, outlet := range allOutletsName {
 		wg.Add(1)
 		go func(outlet string) {
 			defer wg.Done()
-			filteredSales := getFilteredSales(sales, utcDateFrom, utcDateTo, oidToOutletName, outlet)
-			processOutlet(vc, outlet, filteredSales, registers, users, customers, customerGroupMap, products)
+
+			filteredSales := filteredSalesMap[outlet]
+
+			totalSales := len(filteredSales)
+			if totalSales > 0 {
+				bar, err := p.AddProgressBar(totalSales, outlet)
+				if err != nil {
+					fmt.Println(err)
+				}
+				processOutlet(vc, bar, outlet, filteredSales, registers, users, customers, customerGroupMap, products)
+			} else {
+				skippedOutlets = append(skippedOutlets, outlet)
+			}
 		}(outlet)
 	}
-
 	wg.Wait()
+	p.Wait()
+	if len(skippedOutlets) > 0 {
+		fmt.Printf("\n%s\n", color.YellowString("The following outlets had no sales in the date range and so were skipped:"))
+		for _, outlet := range skippedOutlets {
+			fmt.Println(" -", outlet)
+		}
+	}
+
 }
 
 func getAllOutletsToProcess(oidToOutletName map[string]string) []string {
@@ -175,26 +303,21 @@ func getAllOutletsToProcess(oidToOutletName map[string]string) []string {
 	return allOutletsName
 }
 
-func processOutlet(vc vend.Client, outlet string, filteredSales []vend.Sale, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
-	if len(filteredSales) > 0 {
-		sortBySaleDate(filteredSales)
+func processOutlet(vc vend.Client, bar *pbar.CustomBar, outlet string, filteredSales []vend.Sale, registers []vend.Register, users []vend.User, customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product) {
 
-		file, err := createReport(vc.DomainPrefix, outlet)
-		if err != nil {
-			err = fmt.Errorf("Failed creating template CSV: %v", err)
-			messenger.ExitWithError(err)
-		}
-		defer file.Close()
+	sortBySaleDate(filteredSales)
 
-		file = addSalesReportHeader(file)
-
-		fmt.Printf("Writing Sales to CSV file - %s...\n", outlet)
-		file = writeSalesReport(file, registers, users, customers, customerGroupMap, products, filteredSales, vc.DomainPrefix, vc.TimeZone)
-
-		fmt.Printf(color.GreenString("\nExported %v sales - %s\n\n", len(filteredSales), outlet))
-	} else {
-		fmt.Printf(color.GreenString("\n%s has no sales for the specified time period, skipping...\n", outlet))
+	file, err := createReport(vc.DomainPrefix, outlet)
+	if err != nil {
+		err = fmt.Errorf("Failed creating template CSV: %v", err)
+		messenger.ExitWithError(err)
 	}
+	defer file.Close()
+
+	file = addSalesReportHeader(file)
+
+	file = writeSalesReport(file, bar, registers, users, customers, customerGroupMap, products, filteredSales, vc.DomainPrefix, vc.TimeZone)
+
 }
 
 func validateDateInput(date string, label string) {
@@ -215,11 +338,26 @@ func validateTimeZone(date string, timeZone string) {
 }
 
 func getOutletsAndOutletNameMap(vc vend.Client) map[string]string {
-	outlets, _, err := vc.Outlets()
+
+	p := pbar.CreateSingleBar()
+
+	bar, err := p.AddIndeterminateProgressBar("Outlets")
 	if err != nil {
+		fmt.Println(err)
+	}
+	done := make(chan struct{})
+
+	go bar.AnimateIndeterminateBar(done)
+
+	outlets, _, err := vc.Outlets()
+	close(done)
+	if err != nil {
+		bar.AbortBar()
 		err = fmt.Errorf("Failed to get outlets: %v", err)
 		messenger.ExitWithError(err)
 	}
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
 	return getOidToOutletName(outlets)
 }
 
@@ -228,77 +366,6 @@ func prepareDateAndVersion(vc vend.Client) (string, string, int64) {
 	utcDateTo, _ := getUtcTime(dateTo+"T23:59:59Z", vc.TimeZone)
 	versionAfter, _ := vc.GetStartVersion(getTime(utcDateFrom), utcDateFrom)
 	return utcDateFrom, utcDateTo, versionAfter
-}
-
-func GetVendDataForSalesReport(vc vend.Client) ([]vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
-	// create a waitgroup to wait for all goroutines to finish
-	var wg sync.WaitGroup
-	// create a channel to receive the results for each goroutine
-	res := make(chan SaleResults, 5)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		registers, err := vc.Registers()
-		res <- SaleResults{registers: registers, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		users, err := vc.Users()
-		res <- SaleResults{users: users, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		customers, err := vc.Customers()
-		res <- SaleResults{customers: customers, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		customerGroupMap, err := vc.CustomerGroups()
-		res <- SaleResults{customerGroupMap: customerGroupMap, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		products, _, err := vc.Products()
-		res <- SaleResults{products: products, err: err}
-	}()
-
-	// Launch a goroutine to close the res channel after all other goroutines complete
-	go func() {
-		wg.Wait()
-		close(res)
-	}()
-
-	var registers []vend.Register
-	var users []vend.User
-	var customers []vend.Customer
-	customerGroupMap := make(map[string]string)
-	var products []vend.Product
-
-	for i := 0; i < 5; i++ {
-		s := <-res
-		if s.err != nil {
-			err := fmt.Errorf("Failed to get data: %v", s.err)
-			messenger.ExitWithError(err)
-		}
-		registers = append(registers, s.registers...)
-		users = append(users, s.users...)
-		customers = append(customers, s.customers...)
-		for k, v := range s.customerGroupMap {
-			customerGroupMap[k] = v
-		}
-		products = append(products, s.products...)
-	}
-
-	return registers, users, customers, customerGroupMap, products
 }
 
 // getAllOutletNames returns the slice of outlet names based on the provided
@@ -353,19 +420,31 @@ func validOutlet(outletName string, oidToName map[string]string) bool {
 	return false
 }
 
-// getFilteredSales returns the filtered sales based on provided outlet and utc datetime range
+// getFilteredSales filters sales by date range and status and sorts them by outlet
 func getFilteredSales(sales []vend.Sale, utcdatefrom string, utcdateto string,
-	oidToOutletName map[string]string, outlet string) []vend.Sale {
-	var filteredSales []vend.Sale
-	//oidToOutletName := getOidToOutletName(outlets)
+	oidToOutletName map[string]string) map[string][]vend.Sale {
+
+	fmt.Println("\nFiltering sales by outlet and date range...")
+	filteredSalesMap := make(map[string][]vend.Sale)
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(sales), "Filtering Sales")
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	for _, sale := range sales {
+		bar.Increment()
 		outletId := *sale.OutletID
 		//outletName := oidToOutlet[outletId][0] // seems like the .Oultets returns a map outletid : []Outlet?
 		outletName := oidToOutletName[outletId]
 
-		// avoid any surprises with casing
-		if strings.ToLower(outlet) != strings.ToLower(outletName) {
+		// Do not include deleted sales in reports.
+		if sale.DeletedAt != nil {
+			continue
+		}
+		// Do not include sales with status of "OPEN"
+		if sale.Status != nil && *sale.Status == "OPEN" {
 			continue
 		}
 
@@ -375,12 +454,12 @@ func getFilteredSales(sales []vend.Sale, utcdatefrom string, utcdateto string,
 		saleDate := getTime((*sale.SaleDate)[:19] + "Z")
 
 		if saleDate.After(dtFrom) && saleDate.Before(dtTo) {
-			filteredSales = append(filteredSales, sale)
+			filteredSalesMap[outletName] = append(filteredSalesMap[outletName], sale)
 		}
 
 	}
-
-	return filteredSales
+	p.Wait()
+	return filteredSalesMap
 }
 
 // getOidToOutletName returns a map[oid] string {outlet name}
@@ -485,7 +564,7 @@ func addSalesReportHeader(file *os.File) *os.File {
 }
 
 // writeReport aims to mimic the report generated by exporting Vend sales history
-func writeSalesReport(file *os.File, registers []vend.Register, users []vend.User,
+func writeSalesReport(file *os.File, bar *pbar.CustomBar, registers []vend.Register, users []vend.User,
 	customers []vend.Customer, customerGroupMap map[string]string, products []vend.Product, sales []vend.Sale, domainPrefix,
 	timeZone string) *os.File {
 
@@ -494,15 +573,7 @@ func writeSalesReport(file *os.File, registers []vend.Register, users []vend.Use
 
 	// Prepare data to be written to CSV.
 	for _, sale := range sales {
-
-		// Do not include deleted sales in reports.
-		if sale.DeletedAt != nil {
-			continue
-		}
-		// Do not include sales with status of "OPEN"
-		if sale.Status != nil && *sale.Status == "OPEN" {
-			continue
-		}
+		bar.Increment()
 
 		var saleID string
 		if sale.ID != nil {

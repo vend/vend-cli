@@ -3,6 +3,7 @@ package progressbar
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"strings"
@@ -97,19 +98,19 @@ func CreateSingleBar() *ProgressBar {
 	return &ProgressBar{Progress: mpb.New(mpb.WithWidth(BAR_WIDTH))}
 }
 
-func (p *ProgressBar) AddProgressBar(total int, name string) (*mpb.Bar, error) {
+func (p *ProgressBar) AddProgressBar(total int, name string) (*CustomBar, error) {
 	style := p.Defaults.CreateBarStyle("[", "]", "🁢", "", "_", CYAN) // cyan
-	return p.AddBarWithOptions(style, total, name, SMALL_NAME)
+	return p.AddBarWithOptions(style, total, name, MEDIUM_NAME)
 }
 
-func (p *ProgressBar) AddBarWithOptions(barStyle mpb.BarStyleComposer, total int, name string, nameLength int) (*mpb.Bar, error) {
+func (p *ProgressBar) AddBarWithOptions(barStyle mpb.BarStyleComposer, total int, name string, nameLength int) (*CustomBar, error) {
 
 	var bar *mpb.Bar
 	var err error
 	name, err = setNameLength(name, nameLength)
 
 	if err != nil {
-		return bar, errors.New(fmt.Sprintf("set name length error: %s", err))
+		return &CustomBar{Bar: bar}, errors.New(fmt.Sprintf("set name length error: %s", err))
 	}
 
 	bar = p.Progress.New(int64(total), barStyle,
@@ -120,18 +121,18 @@ func (p *ProgressBar) AddBarWithOptions(barStyle mpb.BarStyleComposer, total int
 				decor.Name(p.Defaults.LoadingName(name)), p.Defaults.CompletedName(name)), p.Defaults.ErrorName(name)),
 		),
 		mpb.AppendDecorators(
-			decor.NewPercentage(YELLOW+" %d "+RESET, decor.WCSyncSpace),
+			decor.NewPercentage("%d", decor.WCSyncSpace),
 		),
 	)
 
-	return bar, nil
+	return &CustomBar{Bar: bar}, nil
 }
 
 func (p *ProgressBar) AddIndeterminateProgressBar(name string) (*CustomBar, error) {
 	style := p.Defaults.CreateBarStyle("[", "]", "_", "🁢🁢🁢🁢🁢🁢🁢🁢", "_", CYAN) // cyan
 	var bar *mpb.Bar
 	var err error
-	name, err = setNameLength(name, SMALL_NAME)
+	name, err = setNameLength(name, MEDIUM_NAME)
 
 	if err != nil {
 		return &CustomBar{Bar: bar}, errors.New(fmt.Sprintf("set name length error: %s", err))
@@ -161,11 +162,21 @@ func (p *ProgressBar) Wait() {
 }
 
 func (bar *CustomBar) iterateIndeterminateBar() {
-	bar.Bar.IncrBy(5)
-	// 100 is arbitary and only matters compared to the iteration amount. 100:5 = 20 iterations for a full bar
-	if bar.Bar.Current() > 100 {
-		bar.Bar.SetCurrent(0)
+	current := bar.Bar.Current()
+	switch {
+	case current == 0:
+		bar.home()
+		// 100 is arbitary and only matters compared to the iteration amount. 100:5 = 20 iterations for a full bar
+	case current > 100:
+		bar.home()
+	default:
+		bar.Bar.IncrBy(5)
 	}
+}
+
+func (bar *CustomBar) home() {
+	randomNumber := int64(rand.Intn(11)) // between 0 and 10
+	bar.Bar.SetCurrent(randomNumber)
 }
 
 func (bar *CustomBar) Increment() {
