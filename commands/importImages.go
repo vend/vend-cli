@@ -274,11 +274,18 @@ func Grab(products vend.ProductUpload) (string, error) {
 
 // Get body takes response and returns body.
 func urlGet(url string) ([]byte, error) {
+	test, _ := strconv.ParseInt(url, 10, 64)
+	test1 := int(test)
 
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
+
+	tr1 := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	_ := &http.Client{Transport: tr}
 
 	fmt.Printf("Image URL: %v\n", url)
 
@@ -293,7 +300,7 @@ func urlGet(url string) ([]byte, error) {
 
 	// Check HTTP response.
 	if !vend.ResponseCheck(res.StatusCode) {
-		fmt.Printf("Status Code: %v", res.StatusCode)
+		fmt.Printf("Status Code: %v", test1)
 		return nil, err
 	}
 
