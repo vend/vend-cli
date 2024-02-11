@@ -278,6 +278,10 @@ func urlGet(url string) ([]byte, error) {
 	tr := &http.Transport{
 		//TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 	client := &http.Client{Transport: tr}
 
 	fmt.Printf("Image URL: %v\n", url)
