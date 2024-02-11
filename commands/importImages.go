@@ -276,7 +276,7 @@ func Grab(products vend.ProductUpload) (string, error) {
 func urlGet(url string) ([]byte, error) {
 
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		//TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
 
