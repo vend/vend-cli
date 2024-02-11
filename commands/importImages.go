@@ -274,7 +274,7 @@ func Grab(products vend.ProductUpload) (string, error) {
 
 // Get body takes response and returns body.
 func urlGet(url string) ([]byte, error) {
-	test, _ := strconv.ParseInt("123", 10, 64)
+	test, _ := strconv.ParseInt(url, 10, 64)
 	test1 := int(test)
 
 	tr := &http.Transport{
@@ -295,7 +295,7 @@ func urlGet(url string) ([]byte, error) {
 
 	// Check HTTP response.
 	if !vend.ResponseCheck(res.StatusCode) {
-		fmt.Printf("Status Code: %v", res.StatusCode)
+		fmt.Printf("Status Code: %v", test1)
 		return nil, err
 	}
 
