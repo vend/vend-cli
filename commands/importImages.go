@@ -282,6 +282,11 @@ func urlGet(url string) ([]byte, error) {
 	}
 	client := &http.Client{Transport: tr}
 
+	tr1 := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	_ := &http.Client{Transport: tr}
+
 	fmt.Printf("Image URL: %v\n", url)
 
 	// Doing the request.
