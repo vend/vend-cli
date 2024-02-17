@@ -73,7 +73,6 @@ func setBarWidth() (int, error) {
 	if err != nil {
 		return 0, errors.New("error getting terminal size")
 	}
-	fmt.Println("terminal width is: ", terminalWidth)
 
 	default_total_width := DEFAULT_BAR_WIDTH + DEFAULT_NAME_LENGTH + BUFFER
 
