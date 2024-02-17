@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/fatih/color"
 	mpb "github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // Name Lengths
@@ -34,20 +36,16 @@ const (
 )
 
 const (
-	BAR_WIDTH = 80
-)
-
-const (
-	// not sure how the relationship with this length is with the length of mpb.BarWidth is calculated
-	// this matches a bar width of 80
-	// TODO: figure out how to calculate the length of the bar based on set mp.BarWidth
-	completeBar = "[🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢]"
+	DEFAULT_BAR_WIDTH   = 80
+	DEFAULT_NAME_LENGTH = MEDIUM_NAME
+	BUFFER              = 20 // arbitrary buffer to add to the bar width
 )
 
 type ProgressBar struct {
 	Progress   *mpb.Progress
 	NameLength int
 	Defaults   *Defaults
+	BarWidth   int
 }
 
 type CustomBar struct {
@@ -70,6 +68,39 @@ func (d *Defaults) ErrorName(name string) string {
 	return fmt.Sprintf(" %s | %s  ERROR  %s", name, RED, RESET) // red
 }
 
+func setBarWidth() (int, error) {
+	terminalWidth, _, err := terminal.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		return 0, errors.New("error getting terminal size")
+	}
+	fmt.Println("terminal width is: ", terminalWidth)
+
+	default_total_width := DEFAULT_BAR_WIDTH + DEFAULT_NAME_LENGTH + BUFFER
+
+	switch {
+	case terminalWidth > default_total_width:
+		return DEFAULT_BAR_WIDTH, nil
+	case terminalWidth < default_total_width:
+		adjustedWidth := terminalWidth - DEFAULT_NAME_LENGTH - BUFFER
+		if adjustedWidth > 0 {
+			return adjustedWidth, nil
+		} else {
+			return 0, errors.New("terminal too small for progress bar")
+		}
+	default:
+		return DEFAULT_BAR_WIDTH, nil
+	}
+}
+
+func (p *ProgressBar) setCompleteBarWidth() string {
+	var completeBar = "["
+	for i := 0; i < p.BarWidth-2; i++ { // -2 to account for the brackets
+		completeBar += "🁢"
+	}
+	completeBar += "]"
+	return completeBar
+}
+
 func (d *Defaults) CreateBarStyle(leftBound, rightBound, filler, tip, padding, color string) mpb.BarStyleComposer {
 	return mpb.BarStyle().
 		Lbound(leftBound).LboundMeta(func(s string) string {
@@ -90,17 +121,27 @@ func (d *Defaults) CreateBarStyle(leftBound, rightBound, filler, tip, padding, c
 	})
 }
 
-func CreateMultiBarGroup(wg *sync.WaitGroup) *ProgressBar {
-	return &ProgressBar{Progress: mpb.New(mpb.WithWaitGroup(wg), mpb.WithWidth(BAR_WIDTH))}
+func CreateMultiBarGroup(wg *sync.WaitGroup) (*ProgressBar, error) {
+	width, err := setBarWidth()
+	if err != nil {
+		return &ProgressBar{}, err
+	}
+
+	group := ProgressBar{
+		Progress:   mpb.New(mpb.WithWaitGroup(wg), mpb.WithWidth(width)),
+		BarWidth:   width,
+		NameLength: DEFAULT_NAME_LENGTH,
+	}
+	return &group, nil
 }
 
 func CreateSingleBar() *ProgressBar {
-	return &ProgressBar{Progress: mpb.New(mpb.WithWidth(BAR_WIDTH))}
+	return &ProgressBar{Progress: mpb.New(mpb.WithWidth(DEFAULT_BAR_WIDTH))}
 }
 
 func (p *ProgressBar) AddProgressBar(total int, name string) (*CustomBar, error) {
 	style := p.Defaults.CreateBarStyle("[", "]", "🁢", "", "_", CYAN) // cyan
-	return p.AddBarWithOptions(style, total, name, MEDIUM_NAME)
+	return p.AddBarWithOptions(style, total, name, DEFAULT_NAME_LENGTH)
 }
 
 func (p *ProgressBar) AddBarWithOptions(barStyle mpb.BarStyleComposer, total int, name string, nameLength int) (*CustomBar, error) {
@@ -132,14 +173,14 @@ func (p *ProgressBar) AddIndeterminateProgressBar(name string) (*CustomBar, erro
 	style := p.Defaults.CreateBarStyle("[", "]", "_", "🁢🁢🁢🁢🁢🁢🁢🁢", "_", CYAN) // cyan
 	var bar *mpb.Bar
 	var err error
-	name, err = setNameLength(name, MEDIUM_NAME)
+	name, err = setNameLength(name, DEFAULT_NAME_LENGTH)
 
 	if err != nil {
 		return &CustomBar{Bar: bar}, errors.New(fmt.Sprintf("set name length error: %s", err))
 	}
 
 	bar = p.Progress.New(int64(-1), style,
-		mpb.BarFillerOnComplete(fmt.Sprintf("%s%s%s", CYAN, completeBar, RESET)),
+		mpb.BarFillerOnComplete(fmt.Sprintf("%s%s%s", CYAN, p.setCompleteBarWidth(), RESET)),
 		mpb.PrependDecorators(
 			decor.OnAbort(decor.OnComplete(
 				decor.Meta(decor.Spinner(nil, decor.WCSyncSpace), toMetaFunc(color.New(color.FgRed))), "✔"), "✘"),
