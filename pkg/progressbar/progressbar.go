@@ -13,6 +13,7 @@ import (
 	"github.com/fatih/color"
 	mpb "github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
+	"github.com/vend/govend/vend"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -42,10 +43,14 @@ const (
 )
 
 type ProgressBar struct {
-	Progress   *mpb.Progress
-	NameLength int
-	Defaults   *Defaults
-	BarWidth   int
+	Progress     *mpb.Progress
+	NameLength   int
+	BarWidth     int
+	Defaults     *Defaults
+	VendClient   *vend.Client
+	WaitGroup    *sync.WaitGroup
+	ErrorChannel chan error
+	DataChannel  chan interface{}
 }
 
 type CustomBar struct {
@@ -120,16 +125,31 @@ func (d *Defaults) CreateBarStyle(leftBound, rightBound, filler, tip, padding, c
 	})
 }
 
-func CreateMultiBarGroup(wg *sync.WaitGroup) (*ProgressBar, error) {
+// creates a wait group and progress bar group
+func CreateMultiBarGroup(numBars int, token string, domain string) (*ProgressBar, error) {
 	width, err := setBarWidth()
 	if err != nil {
 		return &ProgressBar{}, err
 	}
+	var vc vend.Client
+
+	var wg sync.WaitGroup
+	if token != "" {
+		vc = vend.NewClient(token, domain, "")
+	}
+
+	// each fetchData has a data1 and data2, so we need a buffer that is 2x the num of routines
+	dataChannel := make(chan interface{}, numBars*2)
+	errChannel := make(chan error, numBars)
 
 	group := ProgressBar{
-		Progress:   mpb.New(mpb.WithWaitGroup(wg), mpb.WithWidth(width)),
-		BarWidth:   width,
-		NameLength: DEFAULT_NAME_LENGTH,
+		Progress:     mpb.New(mpb.WithWaitGroup(&wg), mpb.WithWidth(width)),
+		BarWidth:     width,
+		NameLength:   DEFAULT_NAME_LENGTH,
+		WaitGroup:    &wg,
+		VendClient:   &vc,
+		ErrorChannel: errChannel,
+		DataChannel:  dataChannel,
 	}
 	return &group, nil
 }
@@ -195,6 +215,84 @@ func (p *ProgressBar) AddIndeterminateProgressBar(name string) (*CustomBar, erro
 
 	return &CustomBar{Bar: bar}, nil
 
+}
+
+func (p *ProgressBar) fetchData(name string) {
+	defer p.WaitGroup.Done()
+	vc := *p.VendClient
+	bar, err := p.AddIndeterminateProgressBar(name)
+	if err != nil {
+		p.ErrorChannel <- err
+		return
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	var data interface{}
+	var data2 interface{}
+
+	switch name {
+	case "products":
+		data, data2, err = vc.Products()
+	case "outlets":
+		data, data2, err = vc.Outlets()
+	case "outlet-taxes":
+		data, err = vc.OutletTaxes()
+	case "taxes":
+		data, data2, err = vc.Taxes()
+	case "inventory":
+		data, err = vc.Inventory()
+	case "product-tags":
+		data, err = vc.Tags()
+	}
+
+	close(done)
+
+	if err != nil {
+		bar.AbortBar()
+		p.ErrorChannel <- err
+	} else {
+		p.DataChannel <- data
+		p.DataChannel <- data2
+	}
+	bar.SetIndeterminateBarComplete()
+}
+
+func (p *ProgressBar) FetchDataWithProgressBar(name string) {
+	p.WaitGroup.Add(1)
+	go p.fetchData(name)
+}
+
+type Task func(args ...interface{}) interface{}
+
+// perform a task with an indeterminate progress bar, "task" is a function with a single return
+func (p *ProgressBar) PerformTaskWithProgressBar(barName string, task Task, args ...interface{}) {
+	p.WaitGroup.Add(1)
+	go p.performTask(barName, task, args...)
+}
+
+func (p *ProgressBar) performTask(barName string, task Task, args ...interface{}) {
+	defer p.WaitGroup.Done()
+	bar, err := p.AddIndeterminateProgressBar(barName)
+	if err != nil {
+		p.ErrorChannel <- err
+		return
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	p.DataChannel <- task(args...)
+	close(done)
+	bar.SetIndeterminateBarComplete()
+}
+
+func (p *ProgressBar) MultiBarGroupWait() {
+	p.WaitGroup.Wait()
+	p.Progress.Wait()
+	close(p.ErrorChannel)
+	close(p.DataChannel)
 }
 
 func (p *ProgressBar) Wait() {
