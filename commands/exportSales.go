@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/vend/vend-cli/pkg/messenger"
@@ -101,153 +100,50 @@ func getAllSales() {
 func getAllSalesData(vc vend.Client, versionAfter int64) ([]vend.Sale, []vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
 	// Pull data from Vend
 	fmt.Println("\nRetrieving data from Vend...")
-	var wg sync.WaitGroup
 	routines := 6
-	p := pbar.CreateMultiBarGroup(&wg)
-	saleResults := make(chan SaleResults, routines)
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
+	p, err := pbar.CreateMultiBarGroup(routines, Token, DomainPrefix)
+	if err != nil {
+		fmt.Println("error creating progress bar group: ", err)
+	}
 
-		bar, err := p.AddIndeterminateProgressBar("Sales")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
+	p.FetchSalesDataWithProgressBar(versionAfter)
+	p.FetchDataWithProgressBar("registers")
+	p.FetchDataWithProgressBar("users")
+	p.FetchDataWithProgressBar("customers")
+	p.FetchDataWithProgressBar("customer-groups")
+	p.FetchDataWithProgressBar("products")
 
-		go bar.AnimateIndeterminateBar(done)
+	p.MultiBarGroupWait()
 
-		sales, err := vc.SalesAfter(versionAfter)
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		saleResults <- SaleResults{sales: sales, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Registers")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		registers, err := vc.Registers()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		saleResults <- SaleResults{registers: registers, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Users")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		users, err := vc.Users()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		saleResults <- SaleResults{users: users, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Customers")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		customers, err := vc.Customers()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		saleResults <- SaleResults{customers: customers, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Customer Groups")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		customerGroupMap, err := vc.CustomerGroups()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		saleResults <- SaleResults{customerGroupMap: customerGroupMap, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Products")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		products, _, err := vc.Products()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		saleResults <- SaleResults{products: products, err: err}
-	}()
-	// Launch a goroutine to close the res channel after all other goroutines complete
-	go func() {
-		wg.Wait()
-		close(saleResults)
-	}()
-	p.Wait()
 	var sales []vend.Sale
 	var registers []vend.Register
 	var users []vend.User
 	var customers []vend.Customer
 	customerGroupMap := make(map[string]string)
 	var products []vend.Product
-	for i := 0; i < routines; i++ {
-		s := <-saleResults
-		if s.err != nil {
-			err := fmt.Errorf(color.RedString("Failed to get data: %v", s.err))
-			messenger.ExitWithError(err)
-			return nil, nil, nil, nil, nil, nil
-		}
-		sales = append(sales, s.sales...)
-		registers = append(registers, s.registers...)
-		users = append(users, s.users...)
-		customers = append(customers, s.customers...)
-		for k, v := range s.customerGroupMap {
-			customerGroupMap[k] = v
-		}
-		products = append(products, s.products...)
+
+	for err = range p.ErrorChannel {
+		err = fmt.Errorf("error fetching data: %v", err)
+		messenger.ExitWithError(err)
 	}
+
+	for data := range p.DataChannel {
+		switch d := data.(type) {
+		case []vend.Sale:
+			sales = d
+		case []vend.Register:
+			registers = d
+		case []vend.User:
+			users = d
+		case []vend.Customer:
+			customers = d
+		case map[string]string:
+			customerGroupMap = d
+		case []vend.Product:
+			products = d
+		}
+	}
+
 	return sales, registers, users, customers, customerGroupMap, products
 }
 
@@ -258,12 +154,14 @@ func processOutlets(vc vend.Client, oidToOutletName map[string]string, sales []v
 
 	fmt.Println("\nWriting CSVs...")
 	var skippedOutlets []string
-	var wg sync.WaitGroup
-	p := pbar.CreateMultiBarGroup(&wg)
+	p, err := pbar.CreateMultiBarGroup(len(allOutletsName), Token, DomainPrefix)
+	if err != nil {
+		fmt.Println("error creating progress bar: ", err)
+	}
 	for _, outlet := range allOutletsName {
-		wg.Add(1)
+		p.WaitGroup.Add(1)
 		go func(outlet string) {
-			defer wg.Done()
+			defer p.WaitGroup.Done()
 
 			filteredSales := filteredSalesMap[outlet]
 
@@ -279,8 +177,7 @@ func processOutlets(vc vend.Client, oidToOutletName map[string]string, sales []v
 			}
 		}(outlet)
 	}
-	wg.Wait()
-	p.Wait()
+	p.MultiBarGroupWait()
 	if len(skippedOutlets) > 0 {
 		fmt.Printf("\n%s\n", color.YellowString("The following outlets had no sales in the date range and so were skipped:"))
 		for _, outlet := range skippedOutlets {

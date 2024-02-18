@@ -245,6 +245,14 @@ func (p *ProgressBar) fetchData(name string) {
 		data, err = vc.Inventory()
 	case "product-tags":
 		data, err = vc.Tags()
+	case "registers":
+		data, err = vc.Registers()
+	case "users":
+		data, err = vc.Users()
+	case "customers":
+		data, err = vc.Customers()
+	case "customer-groups":
+		data, err = vc.CustomerGroups()
 	}
 
 	close(done)
@@ -262,6 +270,36 @@ func (p *ProgressBar) fetchData(name string) {
 func (p *ProgressBar) FetchDataWithProgressBar(name string) {
 	p.WaitGroup.Add(1)
 	go p.fetchData(name)
+}
+
+func (p *ProgressBar) FetchSalesDataWithProgressBar(versionAfter int64) {
+	p.WaitGroup.Add(1)
+	go p.fetchSalesData(versionAfter)
+}
+
+func (p *ProgressBar) fetchSalesData(versionAfter int64) {
+	defer p.WaitGroup.Done()
+	vc := *p.VendClient
+	bar, err := p.AddIndeterminateProgressBar("sales")
+	if err != nil {
+		p.ErrorChannel <- err
+		return
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	data, err := vc.SalesAfter(versionAfter)
+
+	close(done)
+
+	if err != nil {
+		bar.AbortBar()
+		p.ErrorChannel <- err
+	} else {
+		p.DataChannel <- data
+	}
+	bar.SetIndeterminateBarComplete()
 }
 
 type Task func(args ...interface{}) interface{}
