@@ -155,7 +155,7 @@ func getSaleRaw(id string) (map[string]interface{}, error) {
 	res, err := vendClient.MakeRequest("GET", url, nil)
 
 	// log the sale info for later in case we need to recover it
-	log.Println(id, string(res))
+	//log.Println(id, string(res))
 
 	// Unmarshal JSON Response
 	err = json.Unmarshal(res, &saleResponse)
