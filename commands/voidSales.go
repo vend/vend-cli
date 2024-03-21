@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"encoding/csv"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/vend/vend-cli/pkg/messenger"
@@ -11,6 +9,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
+	csvparser "github.com/vend/vend-cli/pkg/csvparser"
 	pbar "github.com/vend/vend-cli/pkg/progressbar"
 )
 
@@ -67,13 +66,16 @@ func voidSales() {
 	for _, id := range ids {
 
 		sale, err := getSaleRaw(id)
+		bar.Increment()
 		if err != nil {
 			failedRequests = append(failedRequests, FailedVoidRequest{SaleID: id, Reason: err.Error()})
+			continue
 		}
 		if _, ok := sale["status"]; ok {
 			sale["status"] = "VOIDED"
 		} else {
 			failedRequests = append(failedRequests, FailedVoidRequest{SaleID: id, Reason: "Sale is malformed and does not have a status field."})
+			continue
 		}
 
 		//Make the request
@@ -81,8 +83,8 @@ func voidSales() {
 		_, err = vendClient.MakeRequest("POST", url, sale)
 		if err != nil {
 			failedRequests = append(failedRequests, FailedVoidRequest{SaleID: id, Reason: err.Error()})
+			continue
 		}
-		bar.Increment()
 	}
 	p.Wait()
 
@@ -98,31 +100,36 @@ func voidSales() {
 func saveFailedVoidRequestsToCSV(failedRequests []FailedVoidRequest) {
 
 	fileName := fmt.Sprintf("%s_failed_void_requests__%v.csv", DomainPrefix, time.Now().Unix())
-	// Create a new CSV file
-	file, err := os.Create(fileName)
+	err := csvparser.WriteErrorCSV(fileName, failedRequests)
 	if err != nil {
-		err = fmt.Errorf("Failed to create file: %s", fileName)
 		messenger.ExitWithError(err)
-	}
-	defer file.Close()
-
-	header := []string{"Sale ID", "Reason"}
-	writer := csv.NewWriter(file)
-	err = writer.Write(header)
-	if err != nil {
-		fmt.Println("Error writing failed requests to file:", err)
 		return
 	}
+	// Create a new CSV file
+	// file, err := os.Create(fileName)
+	// if err != nil {
+	// 	err = fmt.Errorf("Failed to create file: %s", fileName)
+	// 	messenger.ExitWithError(err)
+	// }
+	// defer file.Close()
 
-	// Write the data
-	for _, failedRequest := range failedRequests {
+	// header := []string{"Sale ID", "Reason"}
+	// writer := csv.NewWriter(file)
+	// err = writer.Write(header)
+	// if err != nil {
+	// 	fmt.Println("Error writing failed requests to file:", err)
+	// 	return
+	// }
 
-		record := []string{failedRequest.SaleID, failedRequest.Reason}
-		err := writer.Write(record)
-		if err != nil {
-			fmt.Println("Error writing failed requests to file:", err)
-			return
-		}
-	}
-	writer.Flush()
+	// // Write the data
+	// for _, failedRequest := range failedRequests {
+
+	// 	record := []string{failedRequest.SaleID, failedRequest.Reason}
+	// 	err := writer.Write(record)
+	// 	if err != nil {
+	// 		fmt.Println("Error writing failed requests to file:", err)
+	// 		return
+	// 	}
+	// }
+	// writer.Flush()
 }
