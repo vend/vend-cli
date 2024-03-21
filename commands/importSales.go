@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/vend/vend-cli/pkg/messenger"
@@ -359,131 +358,44 @@ func createErredSalesReport() (*os.File, error) {
 
 func GetVendDataForSalesReport(vc vend.Client) ([]vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
 	// create a waitgroup to wait for all goroutines to finish
-	var wg sync.WaitGroup
-	p := pbar.CreateMultiBarGroup(&wg)
+	fmt.Println("\n Fetching data from Vend...")
+	p, err := pbar.CreateMultiBarGroup(5, Token, DomainPrefix)
+	if err != nil {
+		fmt.Println("error creating progress bar group: ", err)
+	}
 	// create a channel to receive the results for each goroutine
-	res := make(chan SaleResults, 5)
+	p.FetchDataWithProgressBar("registers")
+	p.FetchDataWithProgressBar("users")
+	p.FetchDataWithProgressBar("customers")
+	p.FetchDataWithProgressBar("customerGroups")
+	p.FetchDataWithProgressBar("products")
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Registers")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
+	p.MultiBarGroupWait()
 
-		go bar.AnimateIndeterminateBar(done)
-		registers, err := vc.Registers()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		res <- SaleResults{registers: registers, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Users")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		users, err := vc.Users()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		res <- SaleResults{users: users, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Customers")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		customers, err := vc.Customers()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		res <- SaleResults{customers: customers, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Customer Groups")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		customerGroupMap, err := vc.CustomerGroups()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		res <- SaleResults{customerGroupMap: customerGroupMap, err: err}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done() // Finish the goroutine when we're done
-		bar, err := p.AddIndeterminateProgressBar("Products")
-		if err != nil {
-			fmt.Println(err)
-		}
-		done := make(chan struct{})
-
-		go bar.AnimateIndeterminateBar(done)
-		products, _, err := vc.Products()
-		close(done)
-		if err != nil {
-			bar.AbortBar()
-		}
-		bar.SetIndeterminateBarComplete()
-		res <- SaleResults{products: products, err: err}
-	}()
-
-	// Launch a goroutine to close the res channel after all other goroutines complete
-	go func() {
-		wg.Wait()
-		close(res)
-	}()
-	p.Wait()
 	var registers []vend.Register
 	var users []vend.User
 	var customers []vend.Customer
 	customerGroupMap := make(map[string]string)
 	var products []vend.Product
 
-	for i := 0; i < 5; i++ {
-		s := <-res
-		if s.err != nil {
-			err := fmt.Errorf("Failed to get data: %v", s.err)
-			messenger.ExitWithError(err)
+	for err = range p.ErrorChannel {
+		err = fmt.Errorf("error fetching data: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	for data := range p.DataChannel {
+		switch d := data.(type) {
+		case []vend.Register:
+			registers = d
+		case []vend.User:
+			users = d
+		case []vend.Customer:
+			customers = d
+		case map[string]string:
+			customerGroupMap = d
+		case []vend.Product:
+			products = d
 		}
-		registers = append(registers, s.registers...)
-		users = append(users, s.users...)
-		customers = append(customers, s.customers...)
-		for k, v := range s.customerGroupMap {
-			customerGroupMap[k] = v
-		}
-		products = append(products, s.products...)
 	}
 
 	return registers, users, customers, customerGroupMap, products

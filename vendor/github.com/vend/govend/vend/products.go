@@ -239,7 +239,7 @@ func buildProductMap(products []Product) map[string]Product {
 	return productMap
 }
 
-func (c *Client) Tags() (map[string]string, error) {
+func (c *Client) Tags() (map[string]Tags, error) {
 
 	tags := []Tags{}
 	page := []Tags{}
@@ -264,9 +264,9 @@ func (c *Client) Tags() (map[string]string, error) {
 
 	}
 
-	tagsMap := make(map[string]string)
+	tagsMap := make(map[string]Tags)
 	for _, tag := range tags {
-		tagsMap[*tag.ID] = *tag.Name
+		tagsMap[*tag.ID] = tag
 	}
 
 	return tagsMap, err
