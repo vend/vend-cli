@@ -11,20 +11,25 @@ import (
 
 // writes the error data to a CSV file. It takes a struct with all fields as strings
 func WriteErrorCSV(filename string, data interface{}) error {
-	file, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %s", filename)
-	}
-	defer file.Close()
 
 	val := reflect.ValueOf(data)
 	if val.Kind() != reflect.Slice {
 		return fmt.Errorf("data is not a slice")
 	}
 
-	if val.Len() == 0 {
-		return nil
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(val.Len(), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
 	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		return fmt.Errorf("failed to create file: %s", filename)
+	}
+	defer file.Close()
 
 	// write the header. We are using the fields of the struct as the header
 	elemType := val.Index(0).Type()
@@ -41,6 +46,7 @@ func WriteErrorCSV(filename string, data interface{}) error {
 
 	// write the data
 	for i := 0; i < val.Len(); i++ {
+		bar.Increment()
 		elem := val.Index(i)
 		record := make([]string, elemType.NumField())
 		for j := 0; j < elemType.NumField(); j++ {
@@ -57,6 +63,7 @@ func WriteErrorCSV(filename string, data interface{}) error {
 		}
 	}
 	writer.Flush()
+	p.Wait()
 
 	return nil
 }
