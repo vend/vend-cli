@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -33,43 +34,62 @@ func init() {
 // Run executes the process of exporting Store Credits then writing them to CSV.
 func getStoreCredits() {
 
-	// Create new Vend Client
-	vc := vend.NewClient(Token, DomainPrefix, "")
-
 	// Get Store Credits
 	fmt.Println("\nRetrieving Store Credits from Vend...")
-	storeCredits, err := vc.StoreCredits()
-	if err != nil {
-		err = fmt.Errorf("Failed while retrieving store credits: %v", err)
-		messenger.ExitWithError(err)
-	}
-
-	// // Find Customer ID from Customer Code
-	// customerCode, err := getCustomerCode(storeCredits.CustomerID)
-	// if err != nil {
-	// 	log.Printf("Failed trying to find customer code", err)
-
-	// }
-	// storeCredits.CustomerCode = &customerCode
+	storeCredits := fetchDataForStoreCreditExport()
 
 	// Write Store Credits to CSV
-	fmt.Println("Writing Store Credits to CSV file...")
-	err = scWriterFile(storeCredits)
+	fmt.Println("\nWriting Store Credits to CSV file...")
+	err := scWriterFile(storeCredits)
 	if err != nil {
 		err = fmt.Errorf("Failed while writing Store Credits to CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
-	fmt.Println(color.GreenString("\nExported %v Store Credits\n", len(storeCredits)))
+	fmt.Println(color.GreenString("\nExported %v Store Credits  🎉\n", len(storeCredits)))
+}
+
+func fetchDataForStoreCreditExport() []vend.StoreCredit {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("store credits")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	// Create new Vend Client.
+	vc := vend.NewClient(Token, DomainPrefix, "")
+	storeCredits, err := vc.StoreCredits()
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("Failed while retrieving store credits: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
+	return storeCredits
 }
 
 // WriteFile writes Store Credits to CSV
 func scWriterFile(sc []vend.StoreCredit) error {
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(sc), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_storecredit_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
+		bar.AbortBar()
+		p.Wait()
 		err = fmt.Errorf("Failed to create CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
@@ -95,6 +115,7 @@ func scWriterFile(sc []vend.StoreCredit) error {
 
 	// Now loop through each gift card object and populate the CSV.
 	for _, storeCredits := range sc {
+		bar.Increment()
 
 		var ID, customerID, createdAt, balance, totalIssued, totalRedeemed string
 
@@ -130,30 +151,7 @@ func scWriterFile(sc []vend.StoreCredit) error {
 		record = append(record, totalRedeemed)
 		writer.Write(record)
 	}
-
+	p.Wait()
 	writer.Flush()
 	return err
 }
-
-// func getCustomerCode(id string) (string, error) {
-
-// 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/customers/%v", DomainPrefix, id)
-
-// 	res, _, err := vendClient.MakeRequest("GET", url, nil)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	c := &vend.CustomerSearchResponse{}
-
-// 	err = json.Unmarshal(res, &c)
-// 	if err != nil {
-// 		fmt.Printf("Failed to Unmarshal JSON from Vend. Error: %v", err)
-// 	}
-
-// 	if len(c.Data) == 0 {
-// 		return "", fmt.Errorf("no customers found for the supplied customer ID")
-// 	}
-
-// 	return *c.Data[0].Code, nil
-// }
