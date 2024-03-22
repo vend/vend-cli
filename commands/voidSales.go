@@ -89,7 +89,7 @@ func voidSales() {
 	p.Wait()
 
 	if len(failedRequests) > 0 {
-		fmt.Printf("\n\nThere were some errors. Writing failures to csv.. \n")
+		fmt.Println(color.RedString("\n\nThere were some errors. Writing failures to csv.."))
 		saveFailedVoidRequestsToCSV(failedRequests)
 	}
 
