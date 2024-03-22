@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/vend/vend-cli/pkg/csvparser"
 	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
@@ -40,9 +41,9 @@ func deleteConsignments() {
 
 	// Get passed entities from CSV
 	fmt.Println("\nReading CSV...")
-	ids, err := readCSV(FilePath)
+	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		err = fmt.Errorf("Failed to get IDs from the file: %s", FilePath)
+		err = fmt.Errorf("Failed to get IDs from the file: %s\nError:%s", FilePath, err)
 		messenger.ExitWithError(err)
 	}
 

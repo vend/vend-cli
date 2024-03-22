@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 )
 
 // writes the error data to a CSV file. It takes a struct with all fields as strings
@@ -57,4 +59,56 @@ func WriteErrorCSV(filename string, data interface{}) error {
 	writer.Flush()
 
 	return nil
+}
+
+// readIdCSV reads a CSV that is just ids with no header
+func ReadIdCSV(FilePath string) ([]string, error) {
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
+	if err != nil {
+		err = fmt.Errorf("Error creating progress bar:%s", err)
+		return nil, err
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	// Open our provided CSV file
+	file, err := os.Open(FilePath)
+	if err != nil {
+		err = fmt.Errorf(`%s - please check you've specified the right file path.%sTip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`, err, "\n")
+		bar.AbortBar()
+		p.Wait()
+		return nil, err
+	}
+
+	// Make sure to close the file
+	defer file.Close()
+
+	// Create CSV read on our file
+	reader := csv.NewReader(file)
+
+	// Read the rest of the data from the CSV
+	rows, err := reader.ReadAll()
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		return nil, err
+	}
+
+	var rowNumber int
+	entities := []string{}
+
+	// Loop through rows and assign them
+	for _, row := range rows {
+		rowNumber++
+		entityIDs := row[0]
+		entities = append(entities, entityIDs)
+	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
+	return entities, err
 }

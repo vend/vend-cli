@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/vend/vend-cli/pkg/csvparser"
 	"github.com/vend/vend-cli/pkg/messenger"
 
 	"github.com/fatih/color"
@@ -41,9 +42,9 @@ func deleteImages() {
 
 	// Get passed entities from CSV
 	fmt.Println("\nReading CSV...")
-	ids, err := readCSV(FilePath)
+	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		log.Printf(color.RedString("Failed to get IDs from the file: %s", FilePath))
+		log.Printf(color.RedString("Failed to get IDs from the file: %s\nError:%s", FilePath, err))
 		messenger.ExitWithError(err)
 	}
 

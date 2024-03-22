@@ -8,6 +8,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
+	"github.com/vend/vend-cli/pkg/csvparser"
 )
 
 var fixProductsVariantToStandardCmd = &cobra.Command{
@@ -53,9 +54,9 @@ func fixProductsVariantToStandard() {
 
 	// Get passed entities from CSV
 	fmt.Println("\nReading CSV...")
-	ids, err := readCSV(FilePath)
+	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		log.Fatalf(color.RedString("Failed to get ids from the file: %s", FilePath))
+		log.Fatalf(color.RedString("Failed to get ids from the file: %s\nError:%s", FilePath, err))
 	}
 
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/products/actions/bulk", DomainPrefix)

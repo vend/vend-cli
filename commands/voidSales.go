@@ -48,9 +48,9 @@ func voidSales() {
 
 	// Get passed entities from CSV
 	fmt.Println("\nReading CSV...")
-	ids, err := readCSV(FilePath)
+	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		err = fmt.Errorf("Failed to get IDs from the file: %s", FilePath)
+		err = fmt.Errorf("Failed to get IDs from the file: %s\nError:%s", FilePath, err)
 		messenger.ExitWithError(err)
 	}
 
@@ -105,31 +105,4 @@ func saveFailedVoidRequestsToCSV(failedRequests []FailedVoidRequest) {
 		messenger.ExitWithError(err)
 		return
 	}
-	// Create a new CSV file
-	// file, err := os.Create(fileName)
-	// if err != nil {
-	// 	err = fmt.Errorf("Failed to create file: %s", fileName)
-	// 	messenger.ExitWithError(err)
-	// }
-	// defer file.Close()
-
-	// header := []string{"Sale ID", "Reason"}
-	// writer := csv.NewWriter(file)
-	// err = writer.Write(header)
-	// if err != nil {
-	// 	fmt.Println("Error writing failed requests to file:", err)
-	// 	return
-	// }
-
-	// // Write the data
-	// for _, failedRequest := range failedRequests {
-
-	// 	record := []string{failedRequest.SaleID, failedRequest.Reason}
-	// 	err := writer.Write(record)
-	// 	if err != nil {
-	// 		fmt.Println("Error writing failed requests to file:", err)
-	// 		return
-	// 	}
-	// }
-	// writer.Flush()
 }
