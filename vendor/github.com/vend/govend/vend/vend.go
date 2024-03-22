@@ -80,7 +80,7 @@ func parseResponseBody(resp *http.Response) ([]byte, error) {
 
 	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		err = fmt.Errorf("\nError while reading response body: %s\n", err)
+		err = fmt.Errorf("Error while reading response body: %s", err)
 		return nil, err
 	}
 
@@ -150,7 +150,7 @@ func (c *Client) ResourcePage(version int64, method, resource string) ([]byte, i
 	response := Payload{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		err = fmt.Errorf("\nError unmarshalling payload: %s", err)
+		err = fmt.Errorf("Error unmarshalling payload: %s", err)
 		return nil, 0, err
 	}
 	data := response.Data
@@ -192,17 +192,17 @@ func ResponseCheck(statusCode int) error {
 	case statusCode < 300:
 		return nil
 	case statusCode == 400:
-		return errors.New(fmt.Sprintf("\n\nBad Request"))
+		return errors.New(fmt.Sprintf("Bad Request"))
 	case statusCode == 401:
-		return errors.New("\nAccess denied - check API Token")
+		return errors.New("Access denied - check API Token")
 	case statusCode == 404:
-		return errors.New(fmt.Sprintf("\nURL not found - Status: %d", statusCode))
+		return errors.New(fmt.Sprintf("URL not found - Status: %d", statusCode))
 	case statusCode == 429:
-		return errors.New(fmt.Sprintf("\nRate limited by the Vend API :S Status: %d", statusCode))
+		return errors.New(fmt.Sprintf("Rate limited by the Vend API :S Status: %d", statusCode))
 	case statusCode >= 500:
-		return errors.New(fmt.Sprintf("\nServer error. Status: %d", statusCode))
+		return errors.New(fmt.Sprintf("Server error. Status: %d", statusCode))
 	default:
-		return errors.New(fmt.Sprintf("\nGot an unknown status code - Google it. Status: %d", statusCode))
+		return errors.New(fmt.Sprintf("Got an unknown status code - Google it. Status: %d", statusCode))
 	}
 	return nil
 }

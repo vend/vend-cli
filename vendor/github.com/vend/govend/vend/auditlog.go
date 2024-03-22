@@ -37,7 +37,7 @@ func (c *Client) AuditLog(dateFrom, dateTo string) ([]AuditLog, error) {
 	response := &AuditResponse{}
 	err = json.Unmarshal(data, response)
 	if err != nil {
-		err = fmt.Errorf("\nError unmarshalling Vend register payload: %s", err)
+		err = fmt.Errorf("Error unmarshalling Vend register payload: %s", err)
 		return nil, err
 	}
 
@@ -59,7 +59,7 @@ func (c *Client) AuditLog(dateFrom, dateTo string) ([]AuditLog, error) {
 		response := &AuditResponse{}
 		err = json.Unmarshal(data, response)
 		if err != nil {
-			err = fmt.Errorf("\nError unmarshalling Vend register payload: %s", err)
+			err = fmt.Errorf("Error unmarshalling Vend register payload: %s", err)
 			return audit, err
 		}
 
