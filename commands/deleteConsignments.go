@@ -80,7 +80,7 @@ func deleteConsignments() {
 
 	if len(failedRequests) > 0 {
 		fmt.Println(color.RedString("\n\nThere were some errors. Writing failures to csv.."))
-		fileName := fmt.Sprintf("%s_failed_delete_requests__%v.csv", DomainPrefix, time.Now().Unix())
+		fileName := fmt.Sprintf("%s_failed_delete_consignment_requests__%v.csv", DomainPrefix, time.Now().Unix())
 		err := csvparser.WriteErrorCSV(fileName, failedRequests)
 		if err != nil {
 			messenger.ExitWithError(err)
