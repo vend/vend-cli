@@ -155,7 +155,8 @@ func CreateMultiBarGroup(numBars int, token string, domain string) (*ProgressBar
 }
 
 func CreateSingleBar() *ProgressBar {
-	return &ProgressBar{Progress: mpb.New(mpb.WithWidth(DEFAULT_BAR_WIDTH))}
+	width, _ := setBarWidth()
+	return &ProgressBar{Progress: mpb.New(mpb.WithWidth(width)), BarWidth: width}
 }
 
 func (p *ProgressBar) AddProgressBar(total int, name string) (*CustomBar, error) {
@@ -193,13 +194,12 @@ func (p *ProgressBar) AddIndeterminateProgressBar(name string) (*CustomBar, erro
 	var bar *mpb.Bar
 	var err error
 	name, err = setNameLength(name, DEFAULT_NAME_LENGTH)
-
 	if err != nil {
 		return &CustomBar{Bar: bar}, errors.New(fmt.Sprintf("set name length error: %s", err))
 	}
 
 	bar = p.Progress.New(int64(-1), style,
-		mpb.BarFillerOnComplete(fmt.Sprintf("%s%s%s", CYAN, p.setCompleteBarWidth(), RESET)),
+		mpb.BarFillerOnComplete(fmt.Sprintf("%s%s%s", CYAN, p.setCompleteBarWidth(), RESET)), // p.setCompleteBarWidth()
 		mpb.PrependDecorators(
 			decor.OnAbort(decor.OnComplete(
 				decor.Meta(decor.Spinner(nil, decor.WCSyncSpace), toMetaFunc(color.New(color.FgRed))), "✔"), "✘"),
