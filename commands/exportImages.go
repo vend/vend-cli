@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -58,15 +59,11 @@ func getAllImages() {
 
 	// Get Images.
 	fmt.Println("\nRetrieving Images from Vend...")
-	images, _, err := vc.Products()
-	if err != nil {
-		err = fmt.Errorf("Failed while retrieving images: %v", err)
-		messenger.ExitWithError(err)
-	}
+	images := fetchDataForImageExport()
 
 	// Write to CSV
-	fmt.Println("Writing images to CSV file...")
-	err = iWriteFile(images, detailsBool)
+	fmt.Println("\nWriting images to CSV file...")
+	err := iWriteFile(images, detailsBool)
 	if err != nil {
 		err = fmt.Errorf("Failed while writing images to CSV: %v", err)
 		messenger.ExitWithError(err)
@@ -75,10 +72,42 @@ func getAllImages() {
 	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
+func fetchDataForImageExport() []vend.Product {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("images")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	vc := *vendClient
+	products, _, err := vc.Products()
+
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("Failed while retrieving images: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
+	return products
+}
+
 // WriteFile writes image URLs info to file.
 func iWriteFile(products []vend.Product, details bool) error {
 
 	vc := *vendClient
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(products), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_image_export_%v.csv", DomainPrefix, time.Now().Unix())
@@ -112,6 +141,7 @@ func iWriteFile(products []vend.Product, details bool) error {
 
 	// Now loop through each product object and populate the CSV.
 	for _, product := range products {
+		bar.Increment()
 
 		var images = product.Images
 
@@ -170,7 +200,7 @@ func iWriteFile(products []vend.Product, details bool) error {
 		}
 
 	}
-
+	p.Wait()
 	writer.Flush()
 	return err
 }
