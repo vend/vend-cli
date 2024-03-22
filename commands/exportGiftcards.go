@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -33,20 +34,13 @@ func init() {
 // Run executes the process of exporting Gift Cards then writing them to CSV.
 func getGiftCards() {
 
-	// Create new Vend Client
-	vc := vend.NewClient(Token, DomainPrefix, "")
-
 	// Get Gift Cards
 	fmt.Println("\nRetrieving Gift Cards from Vend...")
-	giftCards, err := vc.GiftCards()
-	if err != nil {
-		err = fmt.Errorf("Failed while retrieving Gift Cards: %v", err)
-		messenger.ExitWithError(err)
-	}
+	giftCards := fetchDataForGiftCardExport()
 
 	// Write Gift Cards to CSV
-	fmt.Println("Writing Gift Cards to CSV file...")
-	err = gcWriterFile(giftCards)
+	fmt.Println("\nWriting Gift Cards to CSV file...")
+	err := gcWriterFile(giftCards)
 	if err != nil {
 		err = fmt.Errorf("Failed while writing Gift Cards to CSV: %v", err)
 		messenger.ExitWithError(err)
@@ -55,15 +49,49 @@ func getGiftCards() {
 	fmt.Println(color.GreenString("\nExported %v Gift Cards 🎉\n", len(giftCards)))
 }
 
+func fetchDataForGiftCardExport() []vend.GiftCard {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("gift cards")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	vc := vend.NewClient(Token, DomainPrefix, "")
+	giftCards, err := vc.GiftCards()
+
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("Failed while retrieving Gift Cards: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
+	return giftCards
+}
+
 // WriteFile writes Gift Cards to CSV
 func gcWriterFile(giftCards []vend.GiftCard) error {
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(giftCards), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_giftcard_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
+		bar.AbortBar()
+		p.Wait()
 		err = fmt.Errorf("Failed to create CSV: %v", err)
-		messenger.ExitWithError(err)
+		return err
 	}
 
 	// Ensure the file is closed at the end.
@@ -89,6 +117,7 @@ func gcWriterFile(giftCards []vend.GiftCard) error {
 
 	// Now loop through each gift card object and populate the CSV.
 	for _, giftcard := range giftCards {
+		bar.Increment()
 
 		var ID, number, saleID, createdAt, expiresAt, status, balance, totalSold, totalRedeemed string
 
@@ -132,7 +161,7 @@ func gcWriterFile(giftCards []vend.GiftCard) error {
 		record = append(record, totalRedeemed)
 		writer.Write(record)
 	}
-
+	p.Wait()
 	writer.Flush()
 	return err
 }
