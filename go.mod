@@ -6,12 +6,11 @@ require (
 	github.com/fatih/color v1.10.0
 	github.com/google/uuid v1.3.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.3.0
 	github.com/vbauerster/mpb/v8 v8.7.2
-	github.com/vend/govend v0.7.0
+	github.com/vend/govend v0.8.0
 	github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3
 	golang.org/x/crypto v0.19.0
 )

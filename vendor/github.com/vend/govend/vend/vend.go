@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -78,7 +80,7 @@ func parseResponseBody(resp *http.Response) ([]byte, error) {
 
 	defer resp.Body.Close()
 
-	responseBody, err := ioutil.ReadAll(resp.Body)
+	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		err = fmt.Errorf("Error while reading response body: %s", err)
 		return nil, err
@@ -90,6 +92,77 @@ func parseResponseBody(resp *http.Response) ([]byte, error) {
 	}
 
 	return responseBody, err
+}
+
+func (c Client) ImageUploadRequest(productID string, filePath string) ([]byte, error) {
+	var err error
+	var responseBody []byte
+
+	url := c.ImageUploadURLFactory(productID)
+	image, formData, nil := c.makeImageBody(filePath)
+
+	req, err := http.NewRequest(http.MethodPost, url, &image)
+	if err != nil {
+		err = fmt.Errorf("error creating http request: %s", err)
+		return responseBody, err
+	}
+
+	req.Header.Set("User-agent", "vend-image-upload")
+	req.Header.Set("Content-Type", formData)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
+
+	client := http.DefaultClient
+	resp, err := client.Do(req)
+	if err != nil {
+		return responseBody, err
+	}
+
+	responseBody, err = parseResponseBody(resp)
+	if err != nil {
+		return responseBody, err
+	}
+
+	return responseBody, nil
+}
+
+func (c Client) makeImageBody(imagePath string) (bytes.Buffer, string, error) {
+
+	var imageBody bytes.Buffer
+	var err error
+	writer := multipart.NewWriter(&imageBody)
+
+	// Open image file.
+	var file *os.File
+	file, err = os.Open(imagePath)
+	if err != nil {
+		err = fmt.Errorf("error opening image file: %s", err)
+		return imageBody, "", err
+	}
+
+	defer file.Close()
+	defer os.Remove(imagePath)
+
+	part, err := writer.CreateFormFile("image", imagePath)
+	if err != nil {
+		err = fmt.Errorf("error creating form file: %s", err)
+		return imageBody, "", err
+	}
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		err = fmt.Errorf("error copying file for requst body: %s", err)
+		return imageBody, "", err
+	}
+
+	err = writer.Close()
+	if err != nil {
+		err = fmt.Errorf("error closing writer: %s", err)
+		return imageBody, "", err
+	}
+
+	formData := writer.FormDataContentType()
+
+	return imageBody, formData, nil
 }
 
 func (c Client) MakeRequest(method, url string, body interface{}) ([]byte, error) {

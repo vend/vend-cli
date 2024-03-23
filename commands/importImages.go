@@ -1,28 +1,32 @@
 package cmd
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/csv"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/csvparser"
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
 	"github.com/wallclockbuilder/stringutil"
 )
+
+type FailedImageUpload struct {
+	SKU      string
+	Handle   string
+	ImageURL string
+	Reason   string
+}
 
 // Command config
 var importImagesCmd = &cobra.Command{
@@ -47,6 +51,8 @@ func init() {
 	rootCmd.AddCommand(importImagesCmd)
 }
 
+var failedImageUploads []FailedImageUpload
+
 func importImages(FilePath string) {
 
 	// Create new Vend Client.
@@ -57,61 +63,121 @@ func importImages(FilePath string) {
 	fmt.Println("\nReading products from CSV file...")
 	productsFromCSV, err := ReadImageCSV(FilePath)
 	if err != nil {
-		err = fmt.Errorf("Error reading CSV file")
+		err = fmt.Errorf("error reading CSV file: %s", err)
 		messenger.ExitWithError(err)
 	}
 
-	// Get all products from Vend.
-	_, productsFromVend, err := vc.Products()
-	if err != nil {
-		fmt.Printf("Failed to get products")
-	}
+	fmt.Println("\nRetrieving products from Vend...")
+	productsFromVend := fetchDataForImportImages()
 
-	// Match products from Vend with those from the provided CSV file.
-	matchedProducts := matchVendProduct(productsFromVend, productsFromCSV)
+	fmt.Println("\nMatching products from Vend...")
+	matchedProducts, err := matchVendProduct(productsFromVend, productsFromCSV)
 	if err != nil {
-		fmt.Printf("Error matching product from Vend to CSV input")
+		err = fmt.Errorf("error matching products: %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	// For each product match, first grab the image from the URL, then post that
 	// image to the product on Vend.
-	fmt.Printf("Grabbing images to post to Vend...\n\n")
+	fmt.Println("\nGrabbing images and posting to Vend...")
+	uploadedCount := grabAndUploadImage(matchedProducts)
+
+	if len(failedImageUploads) > 0 {
+		fmt.Println(color.RedString("\n\nThere were some errors. Writing failures to csv.."))
+		fileName := fmt.Sprintf("%s_failed_image_upload_requests_%v.csv", DomainPrefix, time.Now().Unix())
+		err := csvparser.WriteErrorCSV(fileName, failedImageUploads)
+		if err != nil {
+			fmt.Println(color.RedString("\nFailed to write failures to CSV. Printing failures to console instead."))
+			for _, failure := range failedImageUploads {
+				fmt.Printf("Failed to upload image for SKU: %s, Handle: %s, ImageURL: %s\nReason: %s\n", failure.SKU, failure.Handle, failure.ImageURL, failure.Reason)
+			}
+		}
+	}
+
+	fmt.Printf(color.GreenString("\nFinished! Uploaded %v out of %v products\n"), uploadedCount, len(matchedProducts))
+
+}
+
+func grabAndUploadImage(products []vend.ProductUpload) int {
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(products), "uploading images")
+	if err != nil {
+		fmt.Printf("error creating progress bar:%s\n", err)
+	}
+
 	uploaded := 0
-	var failedList []vend.ProductUpload
-	for _, product := range matchedProducts {
+	for _, product := range products {
+		bar.Increment()
 
 		imagePath, err := Grab(product)
 		if err != nil {
-			fmt.Println("Failed to post images to Vend")
+			err = fmt.Errorf("failed to grab image: %s", err)
+			failedImageUploads = append(failedImageUploads, FailedImageUpload{
+				SKU:      product.SKU,
+				Handle:   product.Handle,
+				ImageURL: product.ImageURL,
+				Reason:   err.Error(),
+			})
 			continue
 		}
-		err = UploadImage(imagePath, product)
+
+		_, err = vendClient.ImageUploadRequest(product.ID, imagePath)
 		if err != nil {
-			failedList = append(failedList, product)
-			fmt.Println(err)
+			failedImageUploads = append(failedImageUploads, FailedImageUpload{
+				SKU:      product.SKU,
+				Handle:   product.Handle,
+				ImageURL: product.ImageURL,
+				Reason:   err.Error(),
+			})
 		} else {
 			uploaded++
 		}
 	}
-
-	fmt.Printf(color.GreenString("\nFinished! Uploaded %v out of %v products\n"), uploaded, len(matchedProducts))
-	if len(failedList) > 0 {
-		fmt.Printf("\nThe following products could not be uploaded:")
-		fmt.Printf("\nHandle,SKU\n")
-		for _, failedProduct := range failedList {
-			fmt.Printf("%s,%s\n", failedProduct.Handle, failedProduct.SKU)
-		}
-	}
+	p.Wait()
+	return uploaded
 }
 
-func matchVendProduct(productsFromVend map[string]vend.Product, productsFromCSV []vend.ProductUpload) []vend.ProductUpload {
+func fetchDataForImportImages() map[string]vend.Product {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("images")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	vc := *vendClient
+	_, productsMap, err := vc.Products()
+
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("Failed while retrieving images: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
+	return productsMap
+}
+
+func matchVendProduct(productsFromVend map[string]vend.Product, productsFromCSV []vend.ProductUpload) ([]vend.ProductUpload, error) {
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(productsFromCSV), "Matching Products")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 	var products []vend.ProductUpload
 
 	// Loop through each product from the store, and add the ID field
 	// to any product from the CSV file that matches.
 Match:
 	for _, csvProduct := range productsFromCSV {
+		bar.Increment()
 		for _, vendProduct := range productsFromVend {
 			// Ignore if any required values are empty.
 			if vendProduct.SKU == nil || vendProduct.Handle == nil ||
@@ -135,24 +201,22 @@ Match:
 				continue Match
 			}
 		}
-		// Record product from CSV as error if no match to Vend products.
-		err := errors.New("No handle/sku match")
-		log.WithError(err).WithFields(log.Fields{
-			"type":                  "match",
-			"csv_product_sku":       csvProduct.SKU,
-			"csv_product_handle":    csvProduct.Handle,
-			"csv_product_image_url": csvProduct.ImageURL,
+		failedImageUploads = append(failedImageUploads, FailedImageUpload{
+			SKU:      csvProduct.SKU,
+			Handle:   csvProduct.Handle,
+			ImageURL: csvProduct.ImageURL,
+			Reason:   "No handle/sku match",
 		})
 	}
 
 	// Check how many matches we got.
-	if len(products) > 0 {
-		fmt.Printf(color.GreenString("Matched %v Product out of %v\n", len(products), len(productsFromCSV)))
-	} else {
-		fmt.Println("No product matches")
-		return nil
+	if len(products) == 0 {
+		bar.AbortBar()
+		return nil, fmt.Errorf("No product matches")
 	}
-	return products
+
+	p.Wait()
+	return products, nil
 }
 
 // ReadImageCSV reads the provided CSV file and stores the input as product objects.
@@ -160,13 +224,22 @@ func ReadImageCSV(productFilePath string) ([]vend.ProductUpload, error) {
 	// SKU and Handle combo should be a unique identifier.
 	header := []string{"sku", "handle", "image_url"}
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
+	if err != nil {
+		err = fmt.Errorf("Error creating progress bar:%s", err)
+		return nil, err
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
 	// Open our provided CSV file.
 	file, err := os.Open(productFilePath)
 	if err != nil {
-		errorMsg := `error opening csv file - please check you've specified the right file
-
-Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
-		fmt.Println(errorMsg, "\n")
+		err = fmt.Errorf(`%s - please check you've specified the right file path.%sTip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`, err, "\n")
+		bar.AbortBar()
+		p.Wait()
 		return []vend.ProductUpload{}, err
 	}
 	// Make sure to close at end.
@@ -178,25 +251,33 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	// Read and store our header line.
 	headerRow, err := reader.Read()
 	if err != nil {
-		fmt.Printf("Failed to read headerow.")
+		bar.AbortBar()
+		p.Wait()
 		return []vend.ProductUpload{}, err
 	}
 
 	if len(headerRow) > 3 {
-		fmt.Printf("Header row longer than expected")
+		err = fmt.Errorf("header row longer than expected")
+		bar.AbortBar()
+		p.Wait()
+		return []vend.ProductUpload{}, err
 	}
 
 	// Check each string in the header row is same as our template.
 	for i, row := range headerRow {
 		if stringutil.Strip(strings.ToLower(row)) != header[i] {
-			fmt.Println("Mismatched CSV headers, expecting {sku, handle, image_url}")
-			return []vend.ProductUpload{}, fmt.Errorf("Mistmatched Headers %v", err)
+			bar.AbortBar()
+			p.Wait()
+			err = fmt.Errorf("mismatched CSV headers, expecting {sku, handle, image_url}")
+			return []vend.ProductUpload{}, err
 		}
 	}
 
 	// Read the rest of the data from the CSV.
 	rawData, err := reader.ReadAll()
 	if err != nil {
+		bar.AbortBar()
+		p.Wait()
 		return []vend.ProductUpload{}, err
 	}
 
@@ -205,12 +286,13 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	var rowNumber int
 
 	// Loop through rows and assign them to product.
-	for _, row := range rawData {
+	for idx, row := range rawData {
 		rowNumber++
 		product, err = readRow(row)
 		if err != nil {
-			fmt.Println("Error reading row from CSV")
-			continue
+			bar.AbortBar()
+			err = fmt.Errorf("error reading row %v from CSV: %s", idx+1, err) // plus one since csvs are 1 indexed
+			return productList, err
 		}
 
 		// Append each product to our list.
@@ -220,8 +302,13 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	// Check how many rows we successfully read and stored.
 	if len(productList) > 0 {
 	} else {
-		fmt.Println("No valid products found")
+		bar.AbortBar()
+		err = fmt.Errorf("no valid products found")
+		return productList, err
 	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
 
 	return productList, err
 }
@@ -236,7 +323,7 @@ func readRow(row []string) (vend.ProductUpload, error) {
 
 	for i := range row {
 		if len(row[i]) < 1 {
-			err := errors.New("Missing field")
+			err := errors.New("missing field")
 			return product, err
 		}
 	}
@@ -265,9 +352,9 @@ func Grab(products vend.ProductUpload) (string, error) {
 	}
 
 	// Write product data to file
-	err = ioutil.WriteFile(fileName, image, 0666)
+	err = os.WriteFile(fileName, image, 0666)
 	if err != nil {
-		fmt.Printf("Something went wrong writing image to file: %v", err)
+		err = fmt.Errorf("something went wrong writing image to file: %v", err)
 		return "", err
 	}
 
@@ -282,12 +369,10 @@ func urlGet(url string) ([]byte, error) {
 	}
 	client := &http.Client{Transport: tr}
 
-	fmt.Printf("Image URL: %v\n", url)
-
 	// Doing the request.
 	res, err := client.Get(url)
 	if err != nil {
-		log.Printf("Error performing request")
+		err = fmt.Errorf("error fetching image from url")
 		return nil, err
 	}
 	// Make sure response body is closed at end.
@@ -296,132 +381,16 @@ func urlGet(url string) ([]byte, error) {
 	// Check HTTP response.
 	err = vend.ResponseCheck(res.StatusCode)
 	if err != nil {
-		fmt.Printf("Status Code: %v", res.StatusCode)
+		err = fmt.Errorf("%s Status Code: %v", err, res.StatusCode)
 		return nil, err
 	}
 
 	// Read what we got back.
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		fmt.Printf("Error while reading response body")
+		err = fmt.Errorf("error while reading response body: %v", err)
 		return nil, err
 	}
 
 	return body, err
-}
-
-// UploadImage uploads a single product image to Vend.
-func UploadImage(imagePath string, product vend.ProductUpload) error {
-	var err error
-
-	// This checks we actually have an image to post.
-	if len(product.ImageURL) > 0 {
-
-		// First grab and save the image from the URL.
-		imageURL := fmt.Sprintf("%s", product.ImageURL)
-
-		var body bytes.Buffer
-		// Start multipart writer.
-		writer := multipart.NewWriter(&body)
-
-		// Key "image" value is the image binary.
-		var part io.Writer
-		part, err = writer.CreateFormFile("image", imageURL)
-		if err != nil {
-			fmt.Printf("Error creating multipart form file")
-			return err
-		}
-
-		// Open image file.
-		var file *os.File
-		file, err = os.Open(imagePath)
-		if err != nil {
-			fmt.Printf("Error opening image file")
-			return err
-		}
-
-		// Make sure file is closed and then removed at end.
-		defer file.Close()
-		defer os.Remove(imageURL)
-
-		// Copying image binary to form file.
-		_, err = io.Copy(part, file)
-		if err != nil {
-			err = fmt.Errorf("Error copying file for requst body: %s", err)
-			messenger.ExitWithError(err)
-		}
-
-		err = writer.Close()
-		if err != nil {
-			fmt.Printf("Error closing writer")
-			return err
-		}
-
-		// Create the Vend URL to send our image to.
-		url := vendClient.ImageUploadURLFactory(product.ID)
-
-		fmt.Printf("Uploading image to %v, ", product.ID)
-
-		req, _ := http.NewRequest("POST", url, &body)
-
-		// Headers
-		req.Header.Set("User-agent", "vend-image-upload")
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", vendClient.Token))
-
-		client := &http.Client{}
-
-		// Make the request.
-		var attempt int
-		var res *http.Response
-		for {
-			time.Sleep(time.Second)
-			res, err = client.Do(req)
-			if err != nil {
-				fmt.Printf("Couldnt source image: %s", res.Status)
-				// Delays between attempts will be exponentially longer each time.
-				attempt++
-				delay := vend.BackoffDuration(attempt)
-				time.Sleep(delay)
-			} else {
-				// Ensure that image file is removed after it's uploaded.
-				os.Remove(imagePath)
-				break
-			}
-		}
-		// Add status code check
-		err = vend.ResponseCheck(res.StatusCode)
-		if err != nil {
-			response := vend.Errors{}
-			resBody, _ := ioutil.ReadAll(res.Body)
-			json.Unmarshal(resBody, &response)
-			return fmt.Errorf(color.RedString("\nError uploading image: %s\n", response.Error.Global[0]))
-		}
-
-		// Make sure response body is closed at end.
-		defer res.Body.Close()
-
-		var resBody []byte
-		resBody, err = ioutil.ReadAll(res.Body)
-		if err != nil {
-			fmt.Printf("Error reading response body")
-			return err
-		}
-
-		// Unmarshal JSON response into our respone struct.
-		// from this we can find info about the image status.
-		response := vend.ImageUpload{}
-		err = json.Unmarshal(resBody, &response)
-		if err != nil {
-			err = fmt.Errorf("error sourcing image - please check the image URL. Image links must be a direct link to the image.")
-			messenger.ExitWithError(err)
-			return err
-		}
-
-		payload := response.Data
-
-		fmt.Printf(color.GreenString("image created at Position: %v\n\n", *payload.Position))
-
-	}
-	return err
 }
