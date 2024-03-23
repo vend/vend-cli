@@ -122,8 +122,9 @@ func grabAndUploadImage(products []vend.ProductUpload) int {
 			continue
 		}
 
-		_, err = vendClient.ImageUploadRequest(product.ID, imagePath)
+		resp, err := vendClient.ImageUploadRequest(product.ID, imagePath)
 		if err != nil {
+			err = fmt.Errorf("error: %w response: %s", err, string(resp))
 			failedImageUploads = append(failedImageUploads, FailedImageUpload{
 				SKU:      product.SKU,
 				Handle:   product.Handle,
@@ -140,7 +141,7 @@ func grabAndUploadImage(products []vend.ProductUpload) int {
 
 func fetchDataForImportImages() map[string]vend.Product {
 	p := pbar.CreateSingleBar()
-	bar, err := p.AddIndeterminateProgressBar("images")
+	bar, err := p.AddIndeterminateProgressBar("products")
 	if err != nil {
 		fmt.Printf("Error creating progress bar:%s\n", err)
 	}
@@ -212,7 +213,7 @@ Match:
 	// Check how many matches we got.
 	if len(products) == 0 {
 		bar.AbortBar()
-		return nil, fmt.Errorf("No product matches")
+		return nil, fmt.Errorf("No product matches - check your handle/sku values")
 	}
 
 	p.Wait()
