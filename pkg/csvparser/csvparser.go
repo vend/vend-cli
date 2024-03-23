@@ -13,8 +13,8 @@ import (
 func WriteErrorCSV(filename string, data interface{}) error {
 
 	val := reflect.ValueOf(data)
-	if val.Kind() != reflect.Slice {
-		return fmt.Errorf("data is not a slice")
+	if val.Kind() != reflect.Slice || val.Len() == 0 {
+		return fmt.Errorf("data is not a slice and empty")
 	}
 
 	p := pbar.CreateSingleBar()
