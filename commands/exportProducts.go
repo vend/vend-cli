@@ -57,6 +57,8 @@ func getAllProducts() {
 
 	// Print happy message, and then display catalog stats
 	fmt.Println(color.GreenString("\nExport Finished!  🎉🎉🎉"))
+
+	catalogStats.TotalInventory = int64(len(products))
 	printStats()
 
 }
