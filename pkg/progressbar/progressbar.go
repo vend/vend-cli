@@ -253,6 +253,8 @@ func (p *ProgressBar) fetchData(name string) {
 		data, err = vc.Customers()
 	case "customer-groups":
 		data, err = vc.CustomerGroups()
+	case "gift-cards":
+		data, err = vc.GiftCards()
 	}
 
 	close(done)
@@ -357,6 +359,10 @@ func (bar *CustomBar) home() {
 
 func (bar *CustomBar) Increment() {
 	bar.Bar.Increment()
+}
+
+func (bar *CustomBar) IncBy(amount int) {
+	bar.Bar.IncrBy(amount)
 }
 
 func (bar *CustomBar) AnimateIndeterminateBar(done chan struct{}) {
