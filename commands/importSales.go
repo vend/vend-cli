@@ -268,7 +268,7 @@ func parseSales(sales9 []vend.Sale9) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	file = writeSalesReport(file, bar, registers, users, customers, customerGroupMap, products, sales, DomainPrefix, timeZoneImportSales)
+	file = writeSalesReport(file, bar, registers, users, customers, customerGroupMap, products, sales, timeZoneImportSales)
 	p.Wait()
 
 	fmt.Printf("\nSales report created: %s\n", file.Name())
