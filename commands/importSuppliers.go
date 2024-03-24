@@ -4,13 +4,21 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/vend/vend-cli/pkg/csvparser"
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
 )
+
+type FailedSupplierImportRequest struct {
+	Name   string
+	Reason string
+}
 
 // Command config
 var importSuppliersCmd = &cobra.Command{
@@ -26,6 +34,8 @@ Example:
 		importSuppliers()
 	},
 }
+
+var failedSupplierImportRequests []FailedSupplierImportRequest
 
 func init() {
 	// Flags
@@ -45,18 +55,28 @@ func importSuppliers() {
 	fmt.Println("\nReading Supplier CSV...")
 	suppliers, err := readSupplierCSV(FilePath)
 	if err != nil {
-		err = fmt.Errorf("Couldnt read Supplier CSV file, %s", err)
+		err = fmt.Errorf("couldnt read Supplier CSV file, %s", err)
 		messenger.ExitWithError(err)
 	}
 
 	// Post Suppliers to Vend
-	err = postSuppliers(suppliers)
+	fmt.Println("\nPosting Suppliers to Vend...")
+	count, err := postSuppliers(suppliers)
 	if err != nil {
-		err = fmt.Errorf("Failed to post Suppliers, %s", err)
+		err = fmt.Errorf("failed to post Suppliers, %s", err)
 		messenger.ExitWithError(err)
 	}
 
-	fmt.Println(color.GreenString("\nFinished!\n"))
+	if len(failedSupplierImportRequests) > 0 {
+		fmt.Println(color.RedString("\nThere were some errors. Writing failures to csv.."))
+		fileName := fmt.Sprintf("%s_failed_import_suppliers_requests_%v.csv", DomainPrefix, time.Now().Unix())
+		err := csvparser.WriteErrorCSV(fileName, failedSupplierImportRequests)
+		if err != nil {
+			messenger.ExitWithError(err)
+			return
+		}
+	}
+	fmt.Println(color.GreenString("\nFinished!🎉\nImported %d out of %d suppliers\n", count, len(suppliers)))
 }
 
 // Read passed CSV, returns a slice of suppliers
@@ -69,13 +89,22 @@ func readSupplierCSV(filePath string) ([]vend.SupplierBase, error) {
 		"postal_address1", "postal_address2", "postal_suburb", "postal_city",
 		"postal_postcode", "postal_state", "postal_country_id"}
 
-	// Open our provided CSV file.
-	file, err := os.Open(FilePath)
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
 	if err != nil {
-		errorMsg := `error opening csv file - please check you've specified the right file
+		err = fmt.Errorf("error creating progress bar:%s", err)
+		return nil, err
+	}
 
-Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
-		fmt.Println(errorMsg, "\n")
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	// Open our provided CSV file.
+	file, err := os.Open(filePath)
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf(`%s - please check you've specified the right file path.%sTip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`, err, "\n")
 		return nil, err
 	}
 	// Make sure to close at end.
@@ -86,24 +115,45 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 
 	// Read and store our header line.
 	headerRow, err := reader.Read()
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		return nil, err
+	}
 
 	// Check each header in the row is same as our template.
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
-			err = fmt.Errorf("Found error in header rows.\nNo header match for: %s Instead got: %s.",
+			bar.AbortBar()
+			p.Wait()
+			err = fmt.Errorf("found error in header rows. No header match for: %s Instead got: %s",
 				string(headers[i]), string(headerRow[i]))
-			messenger.ExitWithError(err)
-
+			return nil, err
 		}
 	}
 
 	// Read the rest of the data from the CSV.
 	rawData, err := reader.ReadAll()
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		return nil, err
+	}
 
 	var suppliers []vend.SupplierBase
 
 	// Loop through rows and assign them to supplier type.
-	for _, row := range rawData {
+	for idx, row := range rawData {
+		// Check if supplier name is empty
+		if row[0] == "" {
+			reason := "supplier name is empty"
+			failedSupplierImportRequests = append(failedSupplierImportRequests, FailedSupplierImportRequest{
+				Name:   fmt.Sprintf("Row %d", idx+1), // csvs are 1-indexed
+				Reason: reason,
+			})
+			continue
+		}
+
 		supplier := vend.SupplierBase{
 			Name:        &row[0],
 			Description: &row[1],
@@ -138,28 +188,41 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 		suppliers = append(suppliers, supplier)
 	}
 
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
 	return suppliers, err
 }
 
 // Post each Supplier to Vend
-func postSuppliers(suppliers []vend.SupplierBase) error {
+func postSuppliers(suppliers []vend.SupplierBase) (int, error) {
 	var err error
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(suppliers), "Posting Suppliers")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
 	// Posting Suppliers to Vend
-	fmt.Printf("%d Suppliers to post.\n \n", len(suppliers))
+	var count int = 0
 	for _, supplier := range suppliers {
-		fmt.Printf("Posting: %v \n", *supplier.Name)
+		bar.Increment()
 		// Create the Vend URL
 		url := fmt.Sprintf("https://%s.vendhq.com/api/supplier", DomainPrefix)
 
 		// Make the request to Vend
 		res, err := vendClient.MakeRequest("POST", url, supplier)
 		if err != nil {
-			return fmt.Errorf("Something went wrong trying to post supplier: %s, %s", err, string(res))
+			err = fmt.Errorf("something went wrong trying to post supplier: %s, %s", err, string(res))
+			failedSupplierImportRequests = append(failedSupplierImportRequests, FailedSupplierImportRequest{
+				Name:   *supplier.Name,
+				Reason: err.Error(),
+			})
+			continue
 		}
-
+		count += 1
 	}
-	fmt.Printf("\nFinished! Succesfully created %d Suppliers", len(suppliers))
-
-	return err
+	p.Wait()
+	return count, err
 }
