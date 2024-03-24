@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/vend/vend-cli/pkg/csvparser"
@@ -51,7 +50,7 @@ func deleteImages() {
 	fmt.Println("\nReading CSV...")
 	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		log.Printf(color.RedString("Failed to get IDs from the file: %s\nError:%s", FilePath, err))
+		err = fmt.Errorf("failed to get IDs from the file: %s Error:%s", FilePath, err)
 		messenger.ExitWithError(err)
 	}
 

@@ -42,7 +42,7 @@ func getGiftCards() {
 	fmt.Println("\nWriting Gift Cards to CSV file...")
 	err := gcWriterFile(giftCards)
 	if err != nil {
-		err = fmt.Errorf("Failed while writing Gift Cards to CSV: %v", err)
+		err = fmt.Errorf("failed while writing Gift Cards to CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -65,7 +65,7 @@ func fetchDataForGiftCardExport() []vend.GiftCard {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed while retrieving Gift Cards: %v", err)
+		err = fmt.Errorf("failed while retrieving Gift Cards: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -90,7 +90,7 @@ func gcWriterFile(giftCards []vend.GiftCard) error {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed to create CSV: %v", err)
+		err = fmt.Errorf("failed to create CSV: %v", err)
 		return err
 	}
 

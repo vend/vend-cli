@@ -217,9 +217,9 @@ func cWriteFile(customers []vend.Customer, customerGroupMap map[string]string) e
 			website = *customer.Website
 		}
 		if customer.DoNotEmail != nil {
-			if *customer.DoNotEmail == false {
+			if !*customer.DoNotEmail {
 				doNotEmail = "0"
-			} else if *customer.DoNotEmail == true {
+			} else if *customer.DoNotEmail {
 				doNotEmail = "1"
 			}
 		}

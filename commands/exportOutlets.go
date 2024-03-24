@@ -42,7 +42,7 @@ func exportOutlets() {
 	fmt.Println("\nWriting Outlets to CSV file...")
 	err := writeOutletExport(outlets)
 	if err != nil {
-		err = fmt.Errorf("Failed creating CSV file %v", err)
+		err = fmt.Errorf("failed creating CSV file %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -67,7 +67,7 @@ func fetchDataForOutletExport() []vend.Outlet {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed while retrieving outlets: %v", err)
+		err = fmt.Errorf("failed while retrieving outlets: %v", err)
 		messenger.ExitWithError(err)
 	}
 

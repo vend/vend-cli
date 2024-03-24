@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -65,7 +64,7 @@ func getAllImages() {
 	fmt.Println("\nWriting images to CSV file...")
 	err := iWriteFile(images, detailsBool)
 	if err != nil {
-		err = fmt.Errorf("Failed while writing images to CSV: %v", err)
+		err = fmt.Errorf("failed while writing images to CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -88,7 +87,7 @@ func fetchDataForImageExport() []vend.Product {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed while retrieving images: %v", err)
+		err = fmt.Errorf("failed while retrieving images: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -113,7 +112,7 @@ func iWriteFile(products []vend.Product, details bool) error {
 	fileName := fmt.Sprintf("%s_image_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		err = fmt.Errorf("Failed to create CSV: %v", err)
+		err = fmt.Errorf("failed to create CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -168,7 +167,7 @@ func iWriteFile(products []vend.Product, details bool) error {
 				if details {
 					imageDetails, err := vc.ProductImagesDetails(imageID)
 					if err != nil {
-						log.Printf(color.RedString("Failed while retrieving image details for image id: %v\n%v", imageID, err))
+						continue
 					}
 
 					if imageDetails.Position != nil {

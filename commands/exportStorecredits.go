@@ -42,7 +42,7 @@ func getStoreCredits() {
 	fmt.Println("\nWriting Store Credits to CSV file...")
 	err := scWriterFile(storeCredits)
 	if err != nil {
-		err = fmt.Errorf("Failed while writing Store Credits to CSV: %v", err)
+		err = fmt.Errorf("failed while writing Store Credits to CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -65,7 +65,7 @@ func fetchDataForStoreCreditExport() []vend.StoreCredit {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed while retrieving store credits: %v", err)
+		err = fmt.Errorf("failed while retrieving store credits: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -90,7 +90,7 @@ func scWriterFile(sc []vend.StoreCredit) error {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed to create CSV: %v", err)
+		err = fmt.Errorf("failed to create CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 

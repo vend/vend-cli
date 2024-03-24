@@ -50,7 +50,7 @@ func deleteProducts() {
 	fmt.Println("\nReading CSV...")
 	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		err = fmt.Errorf("Failed to get ids from the file: %s\nError:%s", FilePath, err)
+		err = fmt.Errorf("failed to get ids from the file: %s Error:%s", FilePath, err)
 		messenger.ExitWithError(err)
 	}
 

@@ -42,7 +42,7 @@ func getAllUsers() {
 	fmt.Println("\nWriting Users to CSV file...")
 	err := uWriteFile(users)
 	if err != nil {
-		err = fmt.Errorf("Failed writing Users to CSV: %v", err)
+		err = fmt.Errorf("failed writing Users to CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -65,7 +65,7 @@ func fetchDataForExportUsers() []vend.User {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed while retrieving Users: %v", err)
+		err = fmt.Errorf("failed while retrieving Users: %v", err)
 		messenger.ExitWithError(err)
 	}
 

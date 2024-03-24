@@ -41,7 +41,7 @@ func getAllSuppliers() {
 	fmt.Println("\nWriting Suppliers to CSV file...")
 	err := sWriteFile(suppliers)
 	if err != nil {
-		err = fmt.Errorf("Failed while writing Suppliers to CSV: %v", err)
+		err = fmt.Errorf("failed while writing Suppliers to CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -64,7 +64,7 @@ func fetchDataForSuppliersExport() []vend.SupplierBase {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed while retrieving Suppliers: %v", err)
+		err = fmt.Errorf("failed while retrieving Suppliers: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -88,7 +88,7 @@ func sWriteFile(suppliers []vend.SupplierBase) error {
 	fileName := fmt.Sprintf("%s_supplier_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		err = fmt.Errorf("Failed while creating CSV %v", err)
+		err = fmt.Errorf("failed while creating CSV %v", err)
 		messenger.ExitWithError(err)
 	}
 

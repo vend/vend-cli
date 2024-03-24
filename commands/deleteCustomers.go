@@ -50,7 +50,7 @@ func deleteCustomers() {
 	fmt.Println("\nReading CSV...")
 	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		err = fmt.Errorf("Failed to get IDs from the file: %s\nError:%s", FilePath, err)
+		err = fmt.Errorf("failed to get IDs from the file: %s Error:%s", FilePath, err)
 		messenger.ExitWithError(err)
 	}
 
@@ -74,7 +74,7 @@ func deleteCustomers() {
 	p.Wait()
 
 	if len(failedRequests) > 0 {
-		fmt.Println(color.RedString("\n\nThere were some errors. Writing failures to csv.."))
+		fmt.Println(color.RedString("\nThere were some errors. Writing failures to csv.."))
 		saveFailedCustomerDeleteRequestsToCSV(failedRequests)
 	}
 

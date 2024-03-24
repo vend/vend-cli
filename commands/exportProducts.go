@@ -42,16 +42,16 @@ func getAllProducts() {
 	fmt.Println("Creating Product Export...")
 
 	// Get Data
-	products, outlets, outletsMap, outletTaxes, taxMaps, inventoryRecords, tagsMap := getDataForProductsCmd()
+	products, outlets, outletTaxes, taxMaps, inventoryRecords, tagsMap := getDataForProductsCmd()
 
 	// Parse Data
 	maxSupplier, SKUCodesMap, maxSkuType, outletTaxesMap, recordsMap := parseProductData(products, outlets, outletTaxes, taxMaps, inventoryRecords)
 
 	// Write Products to CSV
 	fmt.Printf("\nWriting products to CSV file...\n")
-	err := productsWriteFile(products, outlets, outletsMap, recordsMap, outletTaxesMap, tagsMap, maxSupplier, SKUCodesMap, maxSkuType)
+	err := productsWriteFile(products, outlets, recordsMap, outletTaxesMap, tagsMap, maxSupplier, SKUCodesMap, maxSkuType)
 	if err != nil {
-		err = fmt.Errorf("Failed writing products to CSV: %v", err)
+		err = fmt.Errorf("failed writing products to CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -63,12 +63,11 @@ func getAllProducts() {
 
 }
 
-func getDataForProductsCmd() ([]vend.Product, []vend.Outlet, map[string][]vend.Outlet, []vend.OutletTaxes, map[string]vend.Taxes, []vend.InventoryRecord, map[string]vend.Tags) {
+func getDataForProductsCmd() ([]vend.Product, []vend.Outlet, []vend.OutletTaxes, map[string]vend.Taxes, []vend.InventoryRecord, map[string]vend.Tags) {
 	fmt.Println("\nGetting data from Vend...")
 
 	var products []vend.Product
 	var outlets []vend.Outlet
-	var outletsMap map[string][]vend.Outlet
 	var outletTaxes []vend.OutletTaxes
 	var taxMaps map[string]vend.Taxes
 	var inventoryRecords []vend.InventoryRecord
@@ -98,8 +97,6 @@ func getDataForProductsCmd() ([]vend.Product, []vend.Outlet, map[string][]vend.O
 			products = d
 		case []vend.Outlet:
 			outlets = d
-		case map[string][]vend.Outlet:
-			outletsMap = d
 		case []vend.OutletTaxes:
 			outletTaxes = d
 		case map[string]vend.Taxes:
@@ -111,7 +108,7 @@ func getDataForProductsCmd() ([]vend.Product, []vend.Outlet, map[string][]vend.O
 		}
 	}
 
-	return products, outlets, outletsMap, outletTaxes, taxMaps, inventoryRecords, tagsMap
+	return products, outlets, outletTaxes, taxMaps, inventoryRecords, tagsMap
 
 }
 
@@ -218,28 +215,11 @@ func parseProductData(products []vend.Product, outlets []vend.Outlet, outletTaxe
 
 	maxSkuType = checkMaxSkuType(SKUCodesMap)
 
-	// // max supplier
-	// bar, err := p.AddIndeterminateProgressBar("max sku")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// done := make(chan struct{})
-	// go bar.AnimateIndeterminateBar(done)
-	// maxSkuType = checkMaxSkuType(SKUCodesMap)
-	// close(done)
-	// if err != nil {
-	// 	bar.AbortBar()
-	// }
-	// bar.SetIndeterminateBarComplete()
-
-	// p.Wait()
-
 	return maxSupplier, SKUCodesMap, maxSkuType, outletTaxesMap, recordsMap
 }
 
 // Creates CSV file and then prints product info to it
-func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
-	outletsMap map[string][]vend.Outlet, recordsMap map[string]map[string]vend.InventoryRecord,
+func productsWriteFile(products []vend.Product, outlets []vend.Outlet, recordsMap map[string]map[string]vend.InventoryRecord,
 	outletTaxesMap map[string]map[string]string, tagsMap map[string]vend.Tags, maxSupplier int, skuCodes map[string]map[string][]string, maxSkuType map[string]int) error {
 
 	// Create a blank CSV file.

@@ -155,7 +155,7 @@ func fetchDataForImportImages() map[string]vend.Product {
 	if err != nil {
 		bar.AbortBar()
 		p.Wait()
-		err = fmt.Errorf("Failed while retrieving images: %v", err)
+		err = fmt.Errorf("failed while retrieving images: %v", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -213,7 +213,7 @@ Match:
 	// Check how many matches we got.
 	if len(products) == 0 {
 		bar.AbortBar()
-		return nil, fmt.Errorf("No product matches - check your handle/sku values")
+		return nil, fmt.Errorf("no product matches - check your handle/sku values")
 	}
 
 	p.Wait()
@@ -228,7 +228,7 @@ func ReadImageCSV(productFilePath string) ([]vend.ProductUpload, error) {
 	p := pbar.CreateSingleBar()
 	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
 	if err != nil {
-		err = fmt.Errorf("Error creating progress bar:%s", err)
+		err = fmt.Errorf("error creating progress bar:%s", err)
 		return nil, err
 	}
 
@@ -349,7 +349,7 @@ func Grab(products vend.ProductUpload) (string, error) {
 	if len(extension) == 3 {
 		fileName = fmt.Sprintf("%s.%s", products.ID, extension)
 	} else {
-		fileName = fmt.Sprintf("%s", products.ID)
+		fileName = products.ID
 	}
 
 	// Write product data to file
