@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/csvparser"
 	"github.com/vend/vend-cli/pkg/messenger"
 	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
@@ -18,12 +19,18 @@ import (
 	"github.com/vend/govend/vend"
 )
 
+type FailedSalePostRequest struct {
+	SaleID string
+	Reason string
+}
+
 // import sales command
 var (
-	filePath            string
-	overwrite           string
-	mode                string
-	timeZoneImportSales string
+	filePath               string
+	overwrite              string
+	mode                   string
+	timeZoneImportSales    string
+	failedSalePostRequests []FailedSalePostRequest
 
 	importSalesCmd = &cobra.Command{
 		Use:   "import-sales",
@@ -72,45 +79,74 @@ func importSales() {
 
 	overwriteBool := parseOverwriteFlag(overwrite)
 	isPostMode := validateModeFlag(mode)
+	if isPostMode {
+		fmt.Printf("\nRunning Command in %s mode\n", color.RedString("POST"))
+		fmt.Printf("Overwrite: %s\n", prettyOverwriteBool(overwriteBool))
+	} else {
+		fmt.Printf("\nRunning Command in %s mode\n", color.GreenString("PARSE"))
+	}
 
 	// Create new Vend Client.
 	vc := vend.NewClient(Token, DomainPrefix, "")
 	vendClient = &vc
 
 	// fetch the jsons from file and store them into interfaces
+	fmt.Println("\nReading JSON file...")
 	erroredSales, err := readJSONFile(filePath)
 	if err != nil {
-		err = fmt.Errorf("Error reading json file:\n%s\n", err)
+		err = fmt.Errorf("error reading json file: %s ", err)
 		messenger.ExitWithError(err)
 	}
 
 	if isPostMode {
-		fmt.Printf("\nRunning command in post mode with overwrite set to %t\n", overwriteBool)
 		if overwriteBool {
 			postSales(erroredSales)
 		} else {
 			checkedBeforePosting(erroredSales)
 		}
 	} else {
-		fmt.Printf("\nRunning command in parse mode\n")
 		// 1970-01-01T00:00:00Z is just a dummy date to validate the timezone
 		if len(timeZoneImportSales) == 0 {
-			err = fmt.Errorf("Timezone is required for parse mode")
+			err = fmt.Errorf("timezone is required for parse mode")
 			messenger.ExitWithError(err)
 		} else {
 			validateTimeZone("1970-01-01T00:00:00Z", timeZone)
 			parseSales(erroredSales)
 		}
 	}
+
+	if len(failedSalePostRequests) > 0 {
+		fmt.Println(color.RedString("\nThere were some errors. Writing failures to csv.."))
+		fileName := fmt.Sprintf("%s_failed_post_sale_requests_%v.csv", DomainPrefix, time.Now().Unix())
+		err := csvparser.WriteErrorCSV(fileName, failedSalePostRequests)
+		if err != nil {
+			messenger.ExitWithError(err)
+			return
+		}
+	}
+
+	fmt.Println(color.GreenString("\nFinished! 🎉\n"))
 }
 
 // read JSONFile fetches the errored sales from file and stores them into an array of vend.Sale9 structs
 func readJSONFile(jsonFilePath string) ([]vend.Sale9, error) {
-	// read file
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("Reading JSON")
+	if err != nil {
+		err = fmt.Errorf("error creating progress bar: %s", err)
+		return nil, err
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
 	// Open our jsonFile
 	jsonFile, err := os.Open(jsonFilePath)
 	if err != nil {
-		err = fmt.Errorf("Error opening json file:\n%s\n", err)
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("error opening json file: %s ", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -120,24 +156,32 @@ func readJSONFile(jsonFilePath string) ([]vend.Sale9, error) {
 	// read our opened jsonFile as a byte array
 	fileContent, err := io.ReadAll(jsonFile)
 	if err != nil {
-		err = fmt.Errorf("Error reading json file:\n%s\n", err)
+		bar.AbortBar()
+		err = fmt.Errorf("error reading json file: %s ", err)
 		messenger.ExitWithError(err)
 	}
 
 	// parse json file
 	data, err := parseJsonFile(fileContent)
 	if err != nil {
-		err = fmt.Errorf("Error parsing json file:\n%s\n", err)
+		bar.AbortBar()
+		err = fmt.Errorf("error parsing json file: %s", err)
 		messenger.ExitWithError(err)
 	}
 
 	// convert generic interface to []vend.Sale9
 	switch convertedData := data.(type) {
 	case []vend.Sale9:
+		bar.SetIndeterminateBarComplete()
+		p.Wait()
 		return convertedData, nil
 	case vend.RegisterSale9:
+		bar.SetIndeterminateBarComplete()
+		p.Wait()
 		return convertedData.RegisterSale9, nil
 	default:
+		bar.AbortBar()
+		p.Wait()
 		return nil, fmt.Errorf("unknown JSON format")
 	}
 }
@@ -199,7 +243,7 @@ func parseJsonFile(fileContent []byte) (interface{}, error) {
 func parseSales(sales9 []vend.Sale9) {
 	sales, err := vend.ConvertSale9ToSale(sales9)
 	if err != nil {
-		err = fmt.Errorf("Error converting sales:\n%s\n", err)
+		err = fmt.Errorf("error converting sales: %s ", err)
 		messenger.ExitWithError(err)
 	}
 	sortBySaleDate(sales)
@@ -210,7 +254,7 @@ func parseSales(sales9 []vend.Sale9) {
 	// Create report
 	file, err := createErredSalesReport()
 	if err != nil {
-		err = fmt.Errorf("Error creating CSV file:\n%s\n", err)
+		err = fmt.Errorf("error creating CSV file: %s ", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -218,7 +262,7 @@ func parseSales(sales9 []vend.Sale9) {
 
 	file = addSalesReportHeader(file)
 
-	fmt.Println("Writing sales report...")
+	fmt.Println("\nWriting sales report...")
 	p := pbar.CreateSingleBar()
 	bar, err := p.AddProgressBar(len(sales), "Write Report")
 	if err != nil {
@@ -227,61 +271,94 @@ func parseSales(sales9 []vend.Sale9) {
 	file = writeSalesReport(file, bar, registers, users, customers, customerGroupMap, products, sales, DomainPrefix, timeZoneImportSales)
 	p.Wait()
 
-	fmt.Printf("Sales report created: %s\n", file.Name())
+	fmt.Printf("\nSales report created: %s\n", file.Name())
 }
 
 func postSales(sales []vend.Sale9) {
-	fmt.Println("Posting Sales!")
+	fmt.Println("\nPosting Sales..")
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(sales), "posting sales")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 
 	for idx, sale := range sales {
+		bar.Increment()
 		if sale.ID != nil {
 			err := postSale(sale)
 			if err != nil {
-				fmt.Printf("Error posting sale %s: %s\n", *sale.ID, err)
+				err = fmt.Errorf("error posting sale: %s", err)
+				failedSalePostRequests = append(failedSalePostRequests, FailedSalePostRequest{
+					SaleID: *sale.ID,
+					Reason: err.Error(),
+				})
 				continue
-			} else {
-				fmt.Printf("Sale %s posted successfully!\n", *sale.ID)
 			}
 		} else {
-			fmt.Printf("Sale ID of sale number: %v in list is nil. Skipping..", idx)
+			err = fmt.Errorf("sale ID of sale number: %v is nil", idx)
+			failedSalePostRequests = append(failedSalePostRequests, FailedSalePostRequest{
+				SaleID: "nil",
+				Reason: err.Error(),
+			})
 		}
 	}
+	p.Wait()
 }
 
 func checkedBeforePosting(sales []vend.Sale9) {
-	fmt.Println("Checking sales before posting!")
+	fmt.Println("\nPosting Sales..")
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(sales), "Posting sales")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 
 	for idx, sale := range sales {
-
+		bar.Increment()
 		if sale.ID != nil {
 			saleID := *sale.ID
 
 			exists, err := saleExists(saleID)
 			if err != nil {
-				fmt.Printf("Error checking if sale %s exists: %s\n", saleID, err)
-				fmt.Println("Skipping..")
+				err = fmt.Errorf("error checking if sale exists: %s", err)
+				failedSalePostRequests = append(failedSalePostRequests, FailedSalePostRequest{
+					SaleID: saleID,
+					Reason: err.Error(),
+				})
 				continue
 			}
 
 			if exists {
-				fmt.Printf("Sale %s already exists. Skipping..\n", saleID)
+				reason := "sale has already been posted. Used mode overwrite true if you want to post anyway"
+				failedSalePostRequests = append(failedSalePostRequests, FailedSalePostRequest{
+					SaleID: saleID,
+					Reason: reason,
+				})
 			} else {
 				err = postSale(sale)
 				if err != nil {
-					fmt.Printf("Error posting sale %s: %s\n", saleID, err)
+					err = fmt.Errorf("error posting sale: %s", err)
+					failedSalePostRequests = append(failedSalePostRequests, FailedSalePostRequest{
+						SaleID: saleID,
+						Reason: err.Error(),
+					})
 					continue
-				} else {
-					fmt.Printf("Sale %s posted successfully!\n", saleID)
 				}
 			}
 		} else {
-			fmt.Printf("Sale ID of sale number: %v in list is nil. Skipping..", idx)
+			err = fmt.Errorf("sale ID of sale number: %v is nil", idx)
+			failedSalePostRequests = append(failedSalePostRequests, FailedSalePostRequest{
+				SaleID: "nil",
+				Reason: err.Error(),
+			})
 		}
 	}
+	p.Wait()
 }
 
 func postSale(sale vend.Sale9) error {
-	fmt.Printf("Posting sale %s\n", *sale.ID)
 
 	vc := *vendClient
 	url := fmt.Sprintf("https://%s.vendhq.com/api/register_sales", DomainPrefix)
@@ -335,10 +412,10 @@ func parseOverwriteFlag(o string) bool {
 
 func createErredSalesReport() (*os.File, error) {
 
-	fileName := fmt.Sprintf("erred_sales%s_%v.csv", DomainPrefix, time.Now().Unix())
+	fileName := fmt.Sprintf("%s_errored_sales_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		err = fmt.Errorf("Error creating CSV file: %s", err)
+		err = fmt.Errorf("error creating CSV file: %s", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -358,7 +435,7 @@ func createErredSalesReport() (*os.File, error) {
 
 func GetVendDataForSalesReport(vc vend.Client) ([]vend.Register, []vend.User, []vend.Customer, map[string]string, []vend.Product) {
 	// create a waitgroup to wait for all goroutines to finish
-	fmt.Println("\n Fetching data from Vend...")
+	fmt.Println("\nFetching data from Vend...")
 	p, err := pbar.CreateMultiBarGroup(5, Token, DomainPrefix)
 	if err != nil {
 		fmt.Println("error creating progress bar group: ", err)
@@ -408,8 +485,16 @@ func validateModeFlag(m string) bool {
 	} else if m == "post" {
 		return true
 	} else {
-		err := fmt.Errorf("'%s' is not a valid option for -m mode. Mode should be 'parse' or 'post'\n", m)
+		err := fmt.Errorf("'%s' is not a valid option for -m mode. Mode should be 'parse' or 'post'", m)
 		messenger.ExitWithError(err)
 	}
 	return false
+}
+
+func prettyOverwriteBool(overwrite bool) string {
+	if overwrite {
+		return color.RedString("TRUE")
+	} else {
+		return color.YellowString("FALSE")
+	}
 }
