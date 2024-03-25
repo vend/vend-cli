@@ -50,7 +50,7 @@ func voidSales() {
 	fmt.Println("\nReading CSV...")
 	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		err = fmt.Errorf("Failed to get IDs from the file: %s\nError:%s", FilePath, err)
+		err = fmt.Errorf("failed to get IDs from the file: %s Error:%s", FilePath, err)
 		messenger.ExitWithError(err)
 	}
 
