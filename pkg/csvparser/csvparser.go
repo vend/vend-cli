@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	pbar "github.com/vend/vend-cli/pkg/progressbar"
 )
@@ -20,7 +21,7 @@ func WriteErrorCSV(filename string, data interface{}) error {
 	p := pbar.CreateSingleBar()
 	bar, err := p.AddProgressBar(val.Len(), "Writing CSV")
 	if err != nil {
-		fmt.Printf("Error creating progress bar:%s\n", err)
+		fmt.Printf("error creating progress bar:%s\n", err)
 	}
 
 	file, err := os.Create(filename)
@@ -111,6 +112,7 @@ func ReadIdCSV(FilePath string) ([]string, error) {
 	for _, row := range rows {
 		rowNumber++
 		entityIDs := row[0]
+		entityIDs = strings.Trim(entityIDs, "\u00a0 ") // removes nonbreaking space, if present. Support has been seeing these in some xlsx exports
 		entities = append(entities, entityIDs)
 	}
 

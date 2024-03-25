@@ -249,6 +249,8 @@ func (p *ProgressBar) fetchData(name string) {
 		data, err = vc.Registers()
 	case "users":
 		data, err = vc.Users()
+	case "user":
+		data, err = vc.User()
 	case "customers":
 		data, err = vc.Customers()
 	case "customer-groups":
