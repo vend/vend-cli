@@ -7,12 +7,13 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/fatih/color"
 	pbar "github.com/vend/vend-cli/pkg/progressbar"
 )
 
 // writes the error data to a CSV file. It takes a struct with all fields as strings
 func WriteErrorCSV(filename string, data interface{}) error {
-
+	fmt.Println("Filename: ", color.YellowString(filename))
 	val := reflect.ValueOf(data)
 	if val.Kind() != reflect.Slice || val.Len() == 0 {
 		return fmt.Errorf("data is not a slice and empty")
