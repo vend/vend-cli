@@ -112,7 +112,7 @@ func updateSaleID() {
 		}
 
 	}
-	fmt.Println(color.GreenString("\n\nFinished! 🎉\nSuccesfully adjusted %d of %d Customer Loyalty Balances", succesfulPosts, len(saleList)))
+	fmt.Println(color.GreenString("\n\nFinished! 🎉\nSuccesfully adjusted %d of %d sales", succesfulPosts, len(saleList)))
 }
 
 func PostUpdateSaleID(saleList []vend.SaleUserUpload) int {
