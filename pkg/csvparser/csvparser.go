@@ -76,7 +76,7 @@ func ReadIdCSV(FilePath string) ([]string, error) {
 	p := pbar.CreateSingleBar()
 	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
 	if err != nil {
-		err = fmt.Errorf("Error creating progress bar:%s", err)
+		err = fmt.Errorf("error creating progress bar:%s", err)
 		return nil, err
 	}
 

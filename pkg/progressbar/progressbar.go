@@ -66,7 +66,7 @@ func (d *Defaults) LoadingName(name string) string {
 }
 
 func (d *Defaults) CompletedName(name string) string {
-	return fmt.Sprintf(" %s | %scomplete %s", name, GREEN, RESET) // green
+	return fmt.Sprintf(" %s | %sCOMPLETE %s", name, GREEN, RESET) // green
 }
 
 func (d *Defaults) ErrorName(name string) string {
@@ -255,6 +255,8 @@ func (p *ProgressBar) fetchData(name string) {
 		data, err = vc.Customers()
 	case "customer-groups":
 		data, err = vc.CustomerGroups()
+	case "store-credits":
+		data, err = vc.StoreCredits()
 	case "gift-cards":
 		data, err = vc.GiftCards()
 	}
