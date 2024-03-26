@@ -33,28 +33,26 @@ var (
 	failedSalePostRequests []FailedSalePostRequest
 
 	importSalesCmd = &cobra.Command{
-		Use:   "import-sales",
-		Short: "Import Sales",
+		Use:   "fix-errored-sales",
+		Short: "Errored Sales",
 		Long: fmt.Sprintf(`
 
-import-sales command is used to import sales from a json file to Vend.
+fix-errored-sales command is used to parse, and optionally, import sales from an errored json file to Vend.
 
-The most popular use case is for errored sales, but you can also use this command to edit sales.
+-- IT CURRENTLY ONLY SUPPORTS ERRORED SALES FROM THE iOS APP --
 
 It offers two modes, "parse" and "post":
 * Parse mode will parse the sales and create a CSV report of the sales. This report matches the report of export-sales command.
 * Post mode will post the sales to Vend. 
 
 When posting you can choose whether or not you'd like to "overwrite" existing sales: 
-* If overwrite is set to "false" (the default) it will check if the sale already exists before posting. If the sale exists, it will skip it.
-* If overwrite is set to "true" it will post the sale regardless of whether it already exists or not.
+* If overwrite is set to "false" (safer, and the default) it will check if the sale has already beend posted before posting. If it has, it will skip it.
+* If overwrite is set to "true" it will post the sale regardless of whether it already exists in vend or not.
 
-Using overwrite "true" is useful when you want to change a field of an existing sale that you can not edit through the UI. For example, if you want to change the sales person attribution, customer_id, or tax label of a sale that already exists. To use this command in this way, you would first export the sale from the api/register_sales endpoint using postman, edit the fields in the json, save this to a file, and then import it back in with overwrite set to "true".
-
-When using this command for errored sales, it is highly recommended that you use parse mode first to check the sales before posting.
+If posting it is highly recommended that you use parse mode FIRST to check the sales before posting.
 
 Example:
-	%s`, color.GreenString("vendcli import-sales -d DOMAINPREFIX -t TOKEN -f FILENAME.json -m MODE -o OVERWRITE -z TIMEZONE")),
+	%s`, color.GreenString("vendcli fix-errored-sales -d DOMAINPREFIX -t TOKEN -f FILENAME.json -m MODE -o OVERWRITE -z TIMEZONE")),
 		Run: func(cmd *cobra.Command, args []string) {
 			importSales()
 		},
