@@ -3,9 +3,11 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -32,41 +34,67 @@ func init() {
 // Run executes the process of grabbing customers then writing them to CSV.
 func getAllCustomers() {
 
-	// Create new Vend Client.
-	vc := vend.NewClient(Token, DomainPrefix, "")
-
 	// Get customers.
-	fmt.Println("\nRetrieving Customers from Vend...")
-	customers, err := vc.Customers()
-	if err != nil {
-		log.Printf("Failed retrieving customers from Vend %v", err)
-		panic(vend.Exit{1})
-	}
-
-	customerGroupMap, err := vc.CustomerGroups()
-	if err != nil {
-		log.Printf("Failed retrieving customer groups from Vend %v", err)
-		panic(vend.Exit{1})
-	}
+	fmt.Println("\nRetrieving Data from Vend...")
+	customers, customerGroupMap := fetchDataForCustomerExport()
 
 	// Write Customers to CSV
-	fmt.Println("Writing customers to CSV file...")
-	err = cWriteFile(customers, customerGroupMap)
+	fmt.Println("\nWriting customers to CSV file...")
+	err := cWriteFile(customers, customerGroupMap)
 	if err != nil {
-		log.Printf(color.RedString("Failed writing customers to CSV: %v", err))
-		panic(vend.Exit{1})
+		err = fmt.Errorf(color.RedString("Failed writing customers to CSV: %v", err))
+		messenger.ExitWithError(err)
 	}
 
 	fmt.Println(color.GreenString("\nExported %v customers  🎉\n", len(customers)))
 }
 
+func fetchDataForCustomerExport() ([]vend.Customer, map[string]string) {
+	routines := 2
+	p, err := pbar.CreateMultiBarGroup(routines, Token, DomainPrefix)
+	if err != nil {
+		fmt.Println("error creating progress bar group: ", err)
+	}
+
+	p.FetchDataWithProgressBar("customers")
+	p.FetchDataWithProgressBar("customer-groups")
+
+	p.MultiBarGroupWait()
+
+	var customers []vend.Customer
+	var customerGroupMap = make(map[string]string)
+
+	for err = range p.ErrorChannel {
+		err = fmt.Errorf("error fetching data: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	for data := range p.DataChannel {
+		switch d := data.(type) {
+		case []vend.Customer:
+			customers = d
+		case map[string]string:
+			customerGroupMap = d
+		}
+	}
+	return customers, customerGroupMap
+}
+
 // WriteFile writes customer info to file.
 func cWriteFile(customers []vend.Customer, customerGroupMap map[string]string) error {
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(customers), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_customer_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
+		bar.AbortBar()
+		p.Wait()
 		return err
 	}
 
@@ -121,6 +149,7 @@ func cWriteFile(customers []vend.Customer, customerGroupMap map[string]string) e
 
 	// Now loop through each customer object and populate the CSV.
 	for _, customer := range customers {
+		bar.Increment()
 
 		var id, code, firstName, lastName, email, customerGroup, yearToDate, balance, loyaltyBalance, note, gender, dateOfBirth, companyName, phone, mobile, fax, twitter,
 			website, doNotEmail, physicalSuburb, physicalCity, physicalPostcode, physicalState, postalSuburb, postalCity, postalState, createdAt, postalPostcode, physicalAddress1, physicalAddress2, postalAddress1, postalAddress2, postalCountryID, customField1, customField2, customField3, customField4 string
@@ -188,9 +217,9 @@ func cWriteFile(customers []vend.Customer, customerGroupMap map[string]string) e
 			website = *customer.Website
 		}
 		if customer.DoNotEmail != nil {
-			if *customer.DoNotEmail == false {
+			if !*customer.DoNotEmail {
 				doNotEmail = "0"
-			} else if *customer.DoNotEmail == true {
+			} else if *customer.DoNotEmail {
 				doNotEmail = "1"
 			}
 		}
@@ -291,7 +320,7 @@ func cWriteFile(customers []vend.Customer, customerGroupMap map[string]string) e
 
 		writer.Write(record)
 	}
-
+	p.Wait()
 	writer.Flush()
 	return err
 }

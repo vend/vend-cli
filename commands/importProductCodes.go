@@ -3,10 +3,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -41,7 +43,7 @@ var importProductCodesCmd = &cobra.Command{
 	Use:   "import-product-codes",
 	Short: "Import Product Codes",
 	Long: fmt.Sprintf(`
-This tool requires the Product Codes CSV template, you can download it here: http://bit.ly/vendclitemplates
+This tool requires the Product Codes CSV template, you can download it here: https://bit.ly/vendcli-csv-templates
 Example:
 %s`, color.GreenString("vendcli import-product-codes -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),
 
@@ -64,33 +66,44 @@ func importProductCodes() {
 	vendClient = &vc
 
 	// Read Product Codes from CSV file
-	fmt.Println("Reading product codes CSV...")
+	fmt.Println("\nReading product codes CSV...")
 	productCodes, err := readProductCodesCSV(FilePath)
 	if err != nil {
-		log.Printf("Couldnt read Product Code CSV file, %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("couldnt read Product Code CSV file, %s", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Post Product Codes to Vend
+	fmt.Println("\nPosting product codes to Vend...")
 	err = postProductCodes(productCodes)
 	if err != nil {
-		log.Printf("Failed to post product codes, %s", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed to post product codes, %s", err)
+		messenger.ExitWithError(err)
 	}
-
-	fmt.Println(color.GreenString("\nFinished!\n"))
 }
 
 // Read passed CSV, returns a slice of product codes add instructions.
 func readProductCodesCSV(filePath string) ([]ProductCodeAdd, error) {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
 	header, records, err := loadRecordsFromCSV(filePath)
 	if err != nil {
+		bar.AbortBar()
 		return nil, err
 	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
 
 	// Ensure valid header fields have been provided
 	err = validateHeader(header)
 	if err != nil {
+		bar.AbortBar()
+		p.Wait()
 		fmt.Println("Header validation failed")
 		return nil, err
 	}
@@ -98,7 +111,9 @@ func readProductCodesCSV(filePath string) ([]ProductCodeAdd, error) {
 	// Ensure there are no duplicate product codes
 	err = validateProductCodeUniqueness(records)
 	if err != nil {
-		fmt.Println("Uniqueness validation failed! All product codes must be unique across the product catalogue. ", err.Error())
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("uniqueness validation failed! All product codes must be unique across the product catalogue. %w", err)
 		return nil, err
 	}
 
@@ -122,6 +137,10 @@ func readProductCodesCSV(filePath string) ([]ProductCodeAdd, error) {
 			}
 		}
 	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
 	return prodCodes, err
 }
 
@@ -137,7 +156,7 @@ func validateHeader(header []string) error {
 
 func validateProductCodeUniqueness(records [][]string) error {
 	codes := make(map[string]interface{})
-	for _, row := range records {
+	for idx, row := range records {
 		// Start at column 1, column 0 is always product_id
 		for c := 1; c < len(row); c++ {
 			pCode := row[c]
@@ -145,7 +164,7 @@ func validateProductCodeUniqueness(records [][]string) error {
 				continue
 			}
 			if _, ok := codes[pCode]; ok {
-				return errors.New("duplicate code: " + pCode)
+				return fmt.Errorf("duplicate code: %s on row %v", pCode, idx+1) // csv is 1-based index
 			} else {
 				codes[pCode] = nil
 			}
@@ -157,14 +176,20 @@ func validateProductCodeUniqueness(records [][]string) error {
 // Post product codes to Vend
 func postProductCodes(productCodes []ProductCodeAdd) error {
 	var err error
+	totalProducts := len(productCodes)
 
 	failedProductCodes := map[int]ProductCodeAddErrors{}
 	// Create the Vend URL
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/products/actions/bulk", DomainPrefix)
 
-	fmt.Println("Begin processing product codes.")
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(totalProducts, "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 
-	for i := 0; i < len(productCodes); i += BatchSize {
+	for i := 0; i < totalProducts; i += BatchSize {
+		bar.IncBy(BatchSize)
 		batchNum := i + 1
 		j := i + BatchSize
 		if j > len(productCodes) {
@@ -177,10 +202,7 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 		}
 
 		switch {
-		case statusCode < 300:
-			fmt.Printf("\nBatch complete! Succesfully created %d Product Codes", len(productCodes[i:j]))
 		case statusCode == http.StatusUnprocessableEntity:
-			fmt.Println("Validation error: ", response)
 			failedProductCodes[batchNum] = ProductCodeAddErrors{
 				productCodes[i:j],
 				"Validation",
@@ -195,6 +217,7 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 			}
 		}
 	}
+	p.Wait()
 
 	// If any codes failed, export them
 	if len(failedProductCodes) > 0 {
@@ -203,9 +226,10 @@ func postProductCodes(productCodes []ProductCodeAdd) error {
 			fmt.Printf("\nUnsuccesssful! Failed to write ouput for %d Product Codes", len(failedProductCodes))
 			return err
 		}
-		fmt.Printf("\nFinished! Partially successful, %d batches failed. Please check %s file for the failed batches.", len(failedProductCodes), filename)
+		fmt.Println(color.GreenString("\nFinished! 🎉"))
+		fmt.Println(color.RedString("Partially successful, %d batches failed. Please check %s file for the failed batches.", len(failedProductCodes), filename))
 	} else {
-		fmt.Printf("\nFinished! Succesfully created %d Product Codes", len(productCodes))
+		fmt.Println(color.GreenString("\nFinished! 🎉 Succesfully created %d Product Codes", len(productCodes)))
 	}
 
 	return err
@@ -216,12 +240,21 @@ func writeOutput(failedCodes map[int]ProductCodeAddErrors) (string, error) {
 	headers := []string{"product_id", "type", "code", "batch_number", "reason", "message"}
 	var rows [][]string
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(failedCodes), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
 	for batchNum, failures := range failedCodes {
+		bar.Increment()
 		for _, c := range failures.ProductCodes {
 			row := []string{c.ProductID, c.Data.Type, c.Data.Code, strconv.Itoa(batchNum), failures.Reason, failures.Message}
 			rows = append(rows, row)
 		}
 	}
+	p.Wait()
+
 	fileName := "product_code_add_" + time.Now().Local().Format("20060102150405") + ".csv"
 	return fileName, writeCSV(fileName, headers, rows)
 }

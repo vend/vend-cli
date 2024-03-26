@@ -54,7 +54,7 @@ func (c *Client) StoreCredits() ([]StoreCredit, error) {
 	url := fmt.Sprintf("https://%v.vendhq.com/api/2.0/store_credits?page_size=%d", c.DomainPrefix, storeCreditLimit)
 	data, err := c.MakeRequest("GET", url, nil)
 	if err != nil {
-		return []StoreCredit{}, fmt.Errorf("failed to retrieve a page of data %v", err)
+		return []StoreCredit{}, fmt.Errorf("failed to retrieve a page of data: %w", err)
 	}
 
 	payload := StoreCreditPayload{}

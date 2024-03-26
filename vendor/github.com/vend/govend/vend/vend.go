@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"io"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,21 +20,6 @@ type Client struct {
 	Token        string
 	DomainPrefix string
 	TimeZone     string
-}
-
-// Exit is for exiting gracefully when using panic
-type Exit struct{ Code int }
-
-// we want to use panic instead of fatal: https://github.com/vend/go-guidance/pull/4
-// but we don't need stacktrace for expected exits
-func SupressStackTrace() {
-	if r := recover(); r != nil {
-		if exit, ok := r.(Exit); ok {
-			fmt.Println("vendcli exited because an error occured")
-			os.Exit(exit.Code)
-		}
-		panic(r) // not an Exit, bubble up
-	}
 }
 
 // NewClient is called to pass authentication details to the manager.
@@ -54,8 +39,7 @@ func (c *Client) NewRequest(method, url string, body interface{}) (*http.Request
 
 	req, err := http.NewRequest(method, url, bb)
 	if err != nil {
-		fmt.Printf("\nError creating http request: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("Error creating http request: %s", err)
 	}
 
 	// Request Headers
@@ -96,17 +80,89 @@ func parseResponseBody(resp *http.Response) ([]byte, error) {
 
 	defer resp.Body.Close()
 
-	responseBody, err := ioutil.ReadAll(resp.Body)
+	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("\nError while reading response body: %s\n", err)
+		err = fmt.Errorf("Error while reading response body: %s", err)
 		return nil, err
 	}
 
-	if !ResponseCheck(resp.StatusCode) {
-		err = errors.New(string(responseBody))
+	err = ResponseCheck(resp.StatusCode)
+	if err != nil {
+		return responseBody, err
 	}
 
 	return responseBody, err
+}
+
+func (c Client) ImageUploadRequest(productID string, filePath string) ([]byte, error) {
+	var err error
+	var responseBody []byte
+
+	url := c.ImageUploadURLFactory(productID)
+	image, formData, nil := c.makeImageBody(filePath)
+
+	req, err := http.NewRequest(http.MethodPost, url, &image)
+	if err != nil {
+		err = fmt.Errorf("error creating http request: %s", err)
+		return responseBody, err
+	}
+
+	req.Header.Set("User-agent", "vend-image-upload")
+	req.Header.Set("Content-Type", formData)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
+
+	client := http.DefaultClient
+	resp, err := client.Do(req)
+	if err != nil {
+		return responseBody, err
+	}
+
+	responseBody, err = parseResponseBody(resp)
+	if err != nil {
+		return responseBody, err
+	}
+
+	return responseBody, nil
+}
+
+func (c Client) makeImageBody(imagePath string) (bytes.Buffer, string, error) {
+
+	var imageBody bytes.Buffer
+	var err error
+	writer := multipart.NewWriter(&imageBody)
+
+	// Open image file.
+	var file *os.File
+	file, err = os.Open(imagePath)
+	if err != nil {
+		err = fmt.Errorf("error opening image file: %s", err)
+		return imageBody, "", err
+	}
+
+	defer file.Close()
+	defer os.Remove(imagePath)
+
+	part, err := writer.CreateFormFile("image", imagePath)
+	if err != nil {
+		err = fmt.Errorf("error creating form file: %s", err)
+		return imageBody, "", err
+	}
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		err = fmt.Errorf("error copying file for requst body: %s", err)
+		return imageBody, "", err
+	}
+
+	err = writer.Close()
+	if err != nil {
+		err = fmt.Errorf("error closing writer: %s", err)
+		return imageBody, "", err
+	}
+
+	formData := writer.FormDataContentType()
+
+	return imageBody, formData, nil
 }
 
 func (c Client) MakeRequest(method, url string, body interface{}) ([]byte, error) {
@@ -124,7 +180,6 @@ func (c Client) MakeRequest(method, url string, body interface{}) ([]byte, error
 
 		resp, err = client.Do(req)
 		if err != nil {
-			fmt.Println("Error performing request: ", err)
 			// Delays between attempts will be exponentially longer each time.
 			attempt++
 			delay := BackoffDuration(attempt)
@@ -132,22 +187,16 @@ func (c Client) MakeRequest(method, url string, body interface{}) ([]byte, error
 
 			// if we're rate limited, rest for the amount specified in the retry-after header (or 30 seconds)
 		} else if resp.StatusCode == 429 {
-			fmt.Println("Rate limited by the Vend API")
-
 			retryHeader, err := getRetryHeader(resp.Header)
 			if err != nil {
-				fmt.Println(err, " unsure when rate limit will be lifted, trying again in 30 seconds..")
 				time.Sleep(time.Second * 30)
 				continue
 			}
 			waitTime := getWaitTime(retryHeader)
-			fmt.Printf("taking a break for %f seconds..\n", waitTime.Seconds())
 			time.Sleep(waitTime)
-			fmt.Printf("alright, naps over: trying again... ")
 			ratelimited = true
 		} else {
 			if ratelimited {
-				println("Success!\n")
 				ratelimited = false
 			}
 			break
@@ -169,13 +218,12 @@ func (c *Client) ResourcePage(version int64, method, resource string) ([]byte, i
 	url := c.urlFactory(version, "", resource)
 	body, err := c.MakeRequest(method, url, nil)
 	if err != nil {
-		fmt.Printf("\nError making request: %s", err)
-		return nil, 0, err
+		return nil, 0, errors.New(fmt.Sprintf("Error making request: %s", err))
 	}
 	response := Payload{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Printf("Error unmarshalling payload: %s", err)
+		err = fmt.Errorf("Error unmarshalling payload: %s", err)
 		return nil, 0, err
 	}
 	data := response.Data
@@ -190,13 +238,13 @@ func (c *Client) ResourcePageFlake(id, method, resource string) ([]byte, string,
 	url := c.urlFactoryFlake(id, resource)
 	body, err := c.MakeRequest(method, url, nil)
 	if err != nil {
-		fmt.Printf("\nError making request: %s", err)
+		err = fmt.Errorf("Error making request: %s", err)
 		return nil, "", err
 	}
 	payload := map[string][]interface{}{}
 	err = json.Unmarshal(body, &payload)
 	if err != nil {
-		fmt.Printf("\nError unmarshalling payload: %s", err)
+		err = fmt.Errorf("Error unmarshalling payload: %s", err)
 		return nil, "", err
 	}
 
@@ -212,25 +260,24 @@ func (c *Client) ResourcePageFlake(id, method, resource string) ([]byte, string,
 }
 
 // ResponseCheck checks the HTTP status codes of responses.
-func ResponseCheck(statusCode int) bool {
+func ResponseCheck(statusCode int) error {
 	switch {
 	case statusCode < 300:
-		return true
+		return nil
 	case statusCode == 400:
-		fmt.Printf("\nBad Request")
+		return errors.New(fmt.Sprintf("Bad Request"))
 	case statusCode == 401:
-		fmt.Printf("\nAccess denied - check API Token. Status: %d\n", statusCode)
-		panic(Exit{1})
+		return errors.New("Access denied - check API Token")
 	case statusCode == 404:
-		fmt.Printf("\nURL not found - Status: %d", statusCode)
+		return errors.New(fmt.Sprintf("URL not found - Status: %d", statusCode))
 	case statusCode == 429:
-		fmt.Printf("\nRate limited by the Vend API :S Status: %d", statusCode)
+		return errors.New(fmt.Sprintf("Rate limited by the Vend API :S Status: %d", statusCode))
 	case statusCode >= 500:
-		fmt.Printf("\nServer error. Status: %d", statusCode)
+		return errors.New(fmt.Sprintf("Server error. Status: %d", statusCode))
 	default:
-		fmt.Printf("\nGot an unknown status code - Google it. Status: %d", statusCode)
+		return errors.New(fmt.Sprintf("Got an unknown status code - Google it. Status: %d", statusCode))
 	}
-	return false
+	return nil
 }
 
 // BackoffDuration ...
@@ -293,26 +340,24 @@ func (c Client) ImageUploadURLFactory(productID string) string {
 }
 
 // ParseVendDT converts the default Vend timestamp string into a go Time.time value.
-func ParseVendDT(dt, tz string) time.Time {
+func ParseVendDT(dt, tz string) (time.Time, error) {
 
+	var dtWithTimezone time.Time
 	// Load store's timezone as location.
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
-		fmt.Printf("Error loading timezone as location: %s", err)
+		return dtWithTimezone, fmt.Errorf("Error loading timezone as location: %s", err)
 	}
 
 	// Default Vend timedate layout.
 	const longForm = "2006-01-02T15:04:05Z07:00"
 	t, err := time.Parse(longForm, dt)
 	if err != nil {
-		log.Fatalf("Error parsing time into deafult timestamp: %s", err)
+		return dtWithTimezone, fmt.Errorf("Error parsing time into deafult timestamp: %s", err)
 	}
 
 	// Time in retailer's timezone.
-	dtWithTimezone := t.In(loc)
+	dtWithTimezone = t.In(loc)
 
-	return dtWithTimezone
-
-	// Time string with timezone removed.
-	// timeStr := timeLoc.String()[0:19]
+	return dtWithTimezone, nil
 }

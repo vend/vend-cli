@@ -3,7 +3,6 @@ package vend
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -130,9 +129,12 @@ func salesAfterVersion(version int64, c *Client) ([]Sale, error) {
 
 	// v is a version that is used to get customers by page.
 	data, v, err := c.ResourcePage(version, "GET", "sales")
+	if err != nil {
+		return sales, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		fmt.Errorf("error while unmarshalling: %s", err)
 	}
 
 	sales = append(sales, page...)
@@ -141,7 +143,14 @@ func salesAfterVersion(version int64, c *Client) ([]Sale, error) {
 	for len(page) > 0 {
 		page = []Sale{}
 		data, v, err = c.ResourcePage(v, "GET", "sales")
+		if err != nil {
+			return sales, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return sales, err
+		}
 		sales = append(sales, page...)
 	}
 
@@ -170,7 +179,7 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Printf("Error unmarshalling payload: %s", err)
+		err = fmt.Errorf("Error unmarshalling payload: %s", err)
 		return 0, err
 	}
 
@@ -205,7 +214,7 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 // 	if outlet != "" {
 // 		oID, err := c.getOutlet(outlet)
 // 		if err != nil {
-// 			fmt.Printf("\nError retrieving Outlets %s", err)
+// 			fmt.Printf("Error retrieving Outlets %s", err)
 // 			return AllSales, err
 // 		}
 // 		outletID = oID
@@ -226,7 +235,7 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 // 	response := &SalesResponse{}
 // 	err = json.Unmarshal(data, response)
 // 	if err != nil {
-// 		fmt.Printf("\nError unmarshalling Vend register payload: %s", err)
+// 		fmt.Printf("Error unmarshalling Vend register payload: %s", err)
 // 		return nil, err
 // 	}
 
@@ -255,7 +264,7 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 
 // 		err = json.Unmarshal(data, response)
 // 		if err != nil {
-// 			// fmt.Printf("\nError unmarshalling Vend register payload: %s", err)
+// 			// fmt.Printf("Error unmarshalling Vend register payload: %s", err)
 // 			log.Printf("error decoding response: %v", err)
 // 			if e, ok := err.(*json.SyntaxError); ok {
 // 				log.Printf("syntax error at byte offset %d", e.Offset)

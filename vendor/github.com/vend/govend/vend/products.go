@@ -3,10 +3,10 @@ package vend
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 )
 
-// Product is a basic product object
+// Product is a basic product object based on /2.0/products endpoint
 // TODO: There are a number of unused fields left over from the 0.9 API, need to remove them and test
 type Product struct {
 	ID                  *string            `json:"id"`
@@ -35,7 +35,7 @@ type Product struct {
 	AccountCodePurchase *string            `json:"account_code_purchase"`
 	AccountCodeSales    *string            `json:"account_code_sales"`
 	Source              *string            `json:"source"`
-	TrackInventory      bool               `json:"track_inventory"`
+	TrackInventory      bool               `json:"has_inventory"`
 	PriceBookEntries    []PriceBookEntry   `json:"price_book_entries"`
 	PriceExcludingTax   *float64           `json:"price_excluding_tax"`
 	Type                Type               `json:"type"`
@@ -73,6 +73,17 @@ type Image struct {
 	ID      *string `json:"id,omitempty"`
 	URL     *string `json:"url,omitempty"`
 	Version *int64  `json:"version"`
+}
+
+type ImageDetailsPayload struct {
+	Data ImageDetails `json:"data"`
+}
+type ImageDetails struct {
+	ID        *string `json:"id"`
+	Version   *int64  `json:"version"`
+	ProductID *string `json:"product_id"`
+	Position  *int64  `json:"position"`
+	Status    *string `json:"status"`
 }
 
 // SKUCodes houses list of skus for a given product
@@ -189,9 +200,12 @@ func (c *Client) Products() ([]Product, map[string]Product, error) {
 
 	// v is a version that is used to get products by page.
 	data, v, err := c.ResourcePage(0, "GET", "products")
+	if err != nil {
+		return products, productMap, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		return products, productMap, err
 	}
 
 	products = append(products, page...)
@@ -200,7 +214,13 @@ func (c *Client) Products() ([]Product, map[string]Product, error) {
 	for len(page) > 0 {
 		page = []Product{}
 		data, v, err = c.ResourcePage(v, "GET", "products")
+		if err != nil {
+			return products, productMap, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			return products, productMap, err
+		}
 		products = append(products, page...)
 	}
 
@@ -219,15 +239,19 @@ func buildProductMap(products []Product) map[string]Product {
 	return productMap
 }
 
-func (c *Client) Tags() (map[string]string, error) {
+func (c *Client) Tags() (map[string]Tags, error) {
 
 	tags := []Tags{}
 	page := []Tags{}
 
 	data, v, err := c.ResourcePage(0, "GET", "tags")
+	if err != nil {
+		return nil, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return nil, err
 	}
 
 	tags = append(tags, page...)
@@ -240,11 +264,30 @@ func (c *Client) Tags() (map[string]string, error) {
 
 	}
 
-	tagsMap := make(map[string]string)
+	tagsMap := make(map[string]Tags)
 	for _, tag := range tags {
-		tagsMap[*tag.ID] = *tag.Name
+		tagsMap[*tag.ID] = tag
 	}
 
 	return tagsMap, err
+
+}
+
+func (c *Client) ProductImagesDetails(id string) (ImageDetails, error) {
+
+	var payload ImageDetailsPayload
+
+	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/product_images/%s", c.DomainPrefix, id)
+	body, err := c.MakeRequest("GET", url, nil)
+	if err != nil {
+		return payload.Data, err
+	}
+
+	err = json.Unmarshal(body, &payload)
+	if err != nil {
+		return payload.Data, err
+	}
+
+	return payload.Data, nil
 
 }

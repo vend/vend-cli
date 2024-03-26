@@ -2,12 +2,21 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	"time"
+
+	"github.com/vend/vend-cli/pkg/csvparser"
+	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
 )
+
+type FailedDeleteRequest struct {
+	ConsignmentID string
+	Reason        string
+}
 
 // deleteConsignmentsCmd represents the deleteConsignments command
 var deleteConsignmentsCmd = &cobra.Command{
@@ -39,24 +48,46 @@ func deleteConsignments() {
 
 	// Get passed entities from CSV
 	fmt.Println("\nReading CSV...")
-	ids, err := readCSV(FilePath)
+	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		log.Printf(color.RedString("Failed to get IDs from the file: %s", FilePath))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed to get IDs from the file: %s\nError:%s", FilePath, err)
+		messenger.ExitWithError(err)
 	}
 
+	failedRequests := []FailedDeleteRequest{}
+
 	// Make the requests
+	fmt.Println("\nDeleting consignments...")
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(ids), "Deleting")
+	if err != nil {
+		fmt.Println("Error creating progress bar:", err)
+	}
+
 	count := 0
 	for _, id := range ids {
-		fmt.Printf("\nDeleting %v", id)
+		bar.Increment()
 		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/consignments/%s", DomainPrefix, id)
 		_, err = vendClient.MakeRequest("DELETE", url, nil)
 		if err != nil {
-			fmt.Printf(color.RedString("Failed to delete consignment: %v", err))
+			failedRequests = append(failedRequests, FailedDeleteRequest{ConsignmentID: id, Reason: fmt.Sprintf("Failed to delete consignment: %v", err)})
 			continue
 		}
-		count = +1
+		count += 1
 
 	}
+	p.Wait()
+
+	if len(failedRequests) > 0 {
+		fmt.Println(color.RedString("\n\nThere were some errors. Writing failures to csv.."))
+		fileName := fmt.Sprintf("%s_failed_delete_consignment_requests__%v.csv", DomainPrefix, time.Now().Unix())
+		err := csvparser.WriteErrorCSV(fileName, failedRequests)
+		if err != nil {
+			messenger.ExitWithError(err)
+			return
+		}
+
+	}
+
 	fmt.Printf(color.GreenString("\n\nFinished! 🎉\nDeleted %d out of %d consignments"), count, len(ids))
 }

@@ -3,9 +3,11 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -31,37 +33,63 @@ func init() {
 
 func getAllSuppliers() {
 
-	// Create new Vend Client
-	vc := vend.NewClient(Token, DomainPrefix, "")
-
 	// Get Suppliers.
 	fmt.Println("\nRetrieving Suppliers from Vend...")
-	suppliers, err := vc.Suppliers()
-	if err != nil {
-		log.Printf("Failed while retrieving Suppliers: %v", err)
-		panic(vend.Exit{1})
-	}
+	suppliers := fetchDataForSuppliersExport()
 
 	// Write Suppliers to CSV
-	fmt.Println("Writing Suppliers to CSV file...")
-	err = sWriteFile(suppliers)
+	fmt.Println("\nWriting Suppliers to CSV file...")
+	err := sWriteFile(suppliers)
 	if err != nil {
-		log.Printf("Failed while writing Suppliers to CSV: %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed while writing Suppliers to CSV: %v", err)
+		messenger.ExitWithError(err)
 	}
 
-	fmt.Println(color.GreenString("\nFinished!\n"))
+	fmt.Println(color.GreenString("\nFinished! Exported %v Suppliers 🎉\n"))
+}
+
+func fetchDataForSuppliersExport() []vend.SupplierBase {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("suppliers")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	vc := vend.NewClient(Token, DomainPrefix, "")
+	suppliers, err := vc.Suppliers()
+
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("failed while retrieving Suppliers: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	close(done)
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
+	return suppliers
 }
 
 // WriteFile writes suppliers info to file.
 func sWriteFile(suppliers []vend.SupplierBase) error {
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(suppliers), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_supplier_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
-		log.Printf("Failed while creating CSV %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed while creating CSV %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Ensure the file is closed at the end.
@@ -103,6 +131,7 @@ func sWriteFile(suppliers []vend.SupplierBase) error {
 
 	// Now loop through each supplier object and populate the CSV.
 	for _, supplier := range suppliers {
+		bar.Increment()
 
 		var name, description, firstName, lastName, email, companyName, twitter, phone, mobile, fax, website,
 			physicalSuburb, physicalCity, physicalPostcode, physicalState, postalSuburb, postalCity, postalState,
@@ -208,7 +237,7 @@ func sWriteFile(suppliers []vend.SupplierBase) error {
 		record = append(record, postalCountryID)
 		writer.Write(record)
 	}
-
+	p.Wait()
 	writer.Flush()
 	return err
 }

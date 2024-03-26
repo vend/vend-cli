@@ -3,7 +3,7 @@ package vend
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 )
 
 // outletTaxes houses data from the /api/2.0/outlet_taxes endpoint
@@ -31,14 +31,18 @@ type TaxRates struct {
 	DisplayName *string  `json:"display_name"`
 }
 
-func (c *Client) Taxes() ([]Taxes, map[string]string, error) {
+func (c *Client) Taxes() ([]Taxes, map[string]Taxes, error) {
 	taxes := []Taxes{}
 	page := []Taxes{}
 
 	data, v, err := c.ResourcePage(0, "GET", "taxes")
+	if err != nil {
+		return taxes, nil, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return taxes, nil, err
 	}
 
 	taxes = append(taxes, page...)
@@ -46,17 +50,24 @@ func (c *Client) Taxes() ([]Taxes, map[string]string, error) {
 	for len(page) > 0 {
 		page = []Taxes{}
 		data, v, err = c.ResourcePage(v, "GET", "taxes")
+		if err != nil {
+			return taxes, nil, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return taxes, nil, err
+		}
 		taxes = append(taxes, page...)
 
 	}
 
-	TaxesMap := make(map[string]string)
+	taxesMap := make(map[string]Taxes)
 	for _, tax := range taxes {
-		TaxesMap[*tax.ID] = *tax.DisplayName
+		taxesMap[*tax.ID] = tax
 	}
 
-	return taxes, TaxesMap, err
+	return taxes, taxesMap, err
 
 }
 
@@ -65,9 +76,13 @@ func (c *Client) OutletTaxes() ([]OutletTaxes, error) {
 	page := []OutletTaxes{}
 
 	data, v, err := c.ResourcePage(0, "GET", "outlet_taxes")
+	if err != nil {
+		return outletTaxes, err
+	}
 	err = json.Unmarshal(data, &page)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
+		return outletTaxes, err
 	}
 
 	outletTaxes = append(outletTaxes, page...)
@@ -75,7 +90,14 @@ func (c *Client) OutletTaxes() ([]OutletTaxes, error) {
 	for len(page) > 0 {
 		page = []OutletTaxes{}
 		data, v, err = c.ResourcePage(v, "GET", "outlet_taxes")
+		if err != nil {
+			return outletTaxes, err
+		}
 		err = json.Unmarshal(data, &page)
+		if err != nil {
+			err = fmt.Errorf("error while unmarshalling: %s", err)
+			return outletTaxes, err
+		}
 		outletTaxes = append(outletTaxes, page...)
 
 	}

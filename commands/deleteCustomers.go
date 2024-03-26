@@ -2,12 +2,21 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	"time"
+
+	"github.com/vend/vend-cli/pkg/csvparser"
+	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
 )
+
+type FailedCustomerDeleteRequest struct {
+	CustomerID string
+	Reason     string
+}
 
 // deleteCustomersCmd represents the deleteCustomers command
 var deleteCustomersCmd = &cobra.Command{
@@ -39,20 +48,46 @@ func deleteCustomers() {
 
 	// Get passed entities from CSV
 	fmt.Println("\nReading CSV...")
-	ids, err := readCSV(FilePath)
+	ids, err := csvparser.ReadIdCSV(FilePath)
 	if err != nil {
-		log.Printf(color.RedString("Failed to get IDs from the file: %s", FilePath))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed to get IDs from the file: %s Error:%s", FilePath, err)
+		messenger.ExitWithError(err)
 	}
 
+	failedRequests := []FailedCustomerDeleteRequest{}
+
 	// Make the requests
+	fmt.Println("\nDeleting customers...")
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(ids), "Deleting")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
 	for _, id := range ids {
-		fmt.Printf("\nDeleting %v", id)
+		bar.Increment()
 		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/customers/%s", DomainPrefix, id)
 		_, err = vendClient.MakeRequest("DELETE", url, nil)
 		if err != nil {
-			fmt.Printf(color.RedString("Failed to delete customer: %v", err))
+			failedRequests = append(failedRequests, FailedCustomerDeleteRequest{CustomerID: id, Reason: err.Error()})
 		}
 	}
+	p.Wait()
+
+	if len(failedRequests) > 0 {
+		fmt.Println(color.RedString("\nThere were some errors. Writing failures to csv.."))
+		saveFailedCustomerDeleteRequestsToCSV(failedRequests)
+	}
+
 	fmt.Println(color.GreenString("\n\nFinished! 🎉\n"))
+
+}
+
+func saveFailedCustomerDeleteRequestsToCSV(failedRequests []FailedCustomerDeleteRequest) {
+
+	fileName := fmt.Sprintf("%s_failed_delete_customer_requests__%v.csv", DomainPrefix, time.Now().Unix())
+	err := csvparser.WriteErrorCSV(fileName, failedRequests)
+	if err != nil {
+		messenger.ExitWithError(err)
+		return
+	}
 }

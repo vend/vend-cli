@@ -31,10 +31,13 @@ func (c *Client) AuditLog(dateFrom, dateTo string) ([]AuditLog, error) {
 	// Build the URL for the endpoint.
 	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/auditlog_events?from=%s&to=%s&offset=%v", c.DomainPrefix, dateFrom, dateTo, currentOffset)
 	data, err := c.MakeRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
 	response := &AuditResponse{}
 	err = json.Unmarshal(data, response)
 	if err != nil {
-		fmt.Printf("\nError unmarshalling Vend register payload: %s", err)
+		err = fmt.Errorf("Error unmarshalling Vend register payload: %s", err)
 		return nil, err
 	}
 
@@ -50,10 +53,13 @@ func (c *Client) AuditLog(dateFrom, dateTo string) ([]AuditLog, error) {
 		// Build the URL for the endpoint including the offset
 		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/auditlog_events?from=%s&to=%s&offset=%v", c.DomainPrefix, dateFrom, dateTo, currentOffset)
 		data, err := c.MakeRequest("GET", url, nil)
+		if err != nil {
+			return audit, err
+		}
 		response := &AuditResponse{}
 		err = json.Unmarshal(data, response)
 		if err != nil {
-			fmt.Printf("\nError unmarshalling Vend register payload: %s", err)
+			err = fmt.Errorf("Error unmarshalling Vend register payload: %s", err)
 			return audit, err
 		}
 

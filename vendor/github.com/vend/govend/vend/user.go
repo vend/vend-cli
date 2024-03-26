@@ -3,6 +3,7 @@ package vend
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 )
 
@@ -34,7 +35,7 @@ func (c *Client) User() (User, error) {
 	data, _, err := c.ResourcePage(0, "GET", "user")
 	err = json.Unmarshal(data, &user)
 	if err != nil {
-		log.Printf("error while unmarshalling: %s", err)
+		err = fmt.Errorf("error while unmarshalling: %s", err)
 	}
 	return user, err
 }

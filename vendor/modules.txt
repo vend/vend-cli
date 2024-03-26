@@ -1,3 +1,9 @@
+# github.com/VividCortex/ewma v1.2.0
+## explicit; go 1.12
+github.com/VividCortex/ewma
+# github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
+## explicit
+github.com/acarl005/stripansi
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -31,9 +37,12 @@ github.com/magiconair/properties
 # github.com/mattn/go-colorable v0.1.8
 ## explicit; go 1.13
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.12
-## explicit; go 1.12
+# github.com/mattn/go-isatty v0.0.20
+## explicit; go 1.15
 github.com/mattn/go-isatty
+# github.com/mattn/go-runewidth v0.0.15
+## explicit; go 1.9
+github.com/mattn/go-runewidth
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
@@ -46,9 +55,9 @@ github.com/pelletier/go-toml
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/sirupsen/logrus v1.7.0
-## explicit; go 1.13
-github.com/sirupsen/logrus
+# github.com/rivo/uniseg v0.4.4
+## explicit; go 1.18
+github.com/rivo/uniseg
 # github.com/spf13/afero v1.1.2
 ## explicit
 github.com/spf13/afero
@@ -74,7 +83,13 @@ github.com/stretchr/testify/assert
 # github.com/subosito/gotenv v1.2.0
 ## explicit
 github.com/subosito/gotenv
-# github.com/vend/govend v0.2.0
+# github.com/vbauerster/mpb/v8 v8.7.2
+## explicit; go 1.17
+github.com/vbauerster/mpb/v8
+github.com/vbauerster/mpb/v8/cwriter
+github.com/vbauerster/mpb/v8/decor
+github.com/vbauerster/mpb/v8/internal
+# github.com/vend/govend v0.8.0
 ## explicit
 github.com/vend/govend/vend
 # github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3
@@ -82,13 +97,19 @@ github.com/vend/govend/vend
 github.com/wallclockbuilder/stringutil
 # github.com/wallclockbuilder/testify v0.0.0-20150512124233-dab07ac62d49
 ## explicit
-# golang.org/x/sys v0.1.0
-## explicit; go 1.17
-golang.org/x/sys/internal/unsafeheader
+# golang.org/x/crypto v0.19.0
+## explicit; go 1.18
+golang.org/x/crypto/ssh/terminal
+# golang.org/x/sys v0.17.0
+## explicit; go 1.18
+golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.2
-## explicit
+# golang.org/x/term v0.17.0
+## explicit; go 1.18
+golang.org/x/term
+# golang.org/x/text v0.14.0
+## explicit; go 1.18
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
 # gopkg.in/ini.v1 v1.51.0

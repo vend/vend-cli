@@ -3,9 +3,11 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -37,37 +39,34 @@ func init() {
 
 func getAuditLog() {
 
-	// Create a new Vend Client
-	vc := vend.NewClient(Token, DomainPrefix, "")
-
 	// Parse date input for errors. Sample: 2017-11-20T15:04:05
 	layout := "2006-01-02T15:04:05"
 	_, err := time.Parse(layout, dateFrom)
 	if err != nil {
-		log.Printf("incorrect date from: %v, %v", dateFrom, err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("incorrect date from: %v, %v", dateFrom, err)
+		messenger.ExitWithError(err)
 	}
 
 	_, err = time.Parse(layout, dateTo)
 	if err != nil {
-		log.Printf("incorrect date to: %v, %v", dateTo, err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("incorrect date to: %v, %v", dateTo, err)
+		messenger.ExitWithError(err)
 	}
 
 	// Get log
 	fmt.Println("\nRetrieving Audit Log from Vend...")
-	audit, err := vc.AuditLog(dateFrom, dateTo)
+	audit, err := fetchAuditLog(dateFrom, dateTo)
 	if err != nil {
-		log.Printf("failed retrieving audit log from Vend %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed retrieving audit log from Vend %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Write log to CSV
-	fmt.Println("Writing log to CSV file...")
+	fmt.Println("\n\nWriting log to CSV file...")
 	err = aWriteFile(audit)
 	if err != nil {
-		log.Printf("failed writing audit log to CSV %v", err)
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed writing audit log to CSV %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	fmt.Println(color.GreenString("\nFinished!\n"))
@@ -75,10 +74,17 @@ func getAuditLog() {
 
 func aWriteFile(auditEvents []vend.AuditLog) error {
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(auditEvents), "Writing Audit Log")
+	if err != nil {
+		fmt.Println("Error creating progress bar:", err)
+	}
+
 	// Create a blank CSV file
-	filename := fmt.Sprintf("%s_audit_log_%v.csv", DomainPrefix, time.Now().Unix())
+	filename := fmt.Sprintf("%s_audit_log_f%s_t%s.csv", DomainPrefix, dateFrom, dateTo)
 	file, err := os.Create(fmt.Sprintf("./%s", filename))
 	if err != nil {
+		bar.AbortBar()
 		return err
 	}
 
@@ -101,6 +107,7 @@ func aWriteFile(auditEvents []vend.AuditLog) error {
 	for _, auditEvent := range auditEvents {
 
 		var id, userID, kind, action, entityID, IPAddress, userAgent, occurredAt, createdAt string
+		bar.Increment()
 
 		if auditEvent.ID != nil {
 			id = *auditEvent.ID
@@ -143,7 +150,33 @@ func aWriteFile(auditEvents []vend.AuditLog) error {
 
 		writer.Write(record)
 	}
+	p.Wait()
 
 	writer.Flush()
 	return err
+}
+
+func fetchAuditLog(dateFrom, dateTo string) ([]vend.AuditLog, error) {
+
+	vc := vend.NewClient(Token, DomainPrefix, "")
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("auditlog")
+	if err != nil {
+		return nil, err
+	}
+
+	done := make(chan struct{})
+
+	go bar.AnimateIndeterminateBar(done)
+
+	audit, err := vc.AuditLog(dateFrom, dateTo)
+	close(done)
+
+	if err != nil {
+		bar.AbortBar()
+		return nil, err
+	}
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+	return audit, nil
 }

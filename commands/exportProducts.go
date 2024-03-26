@@ -3,12 +3,14 @@ package cmd
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -37,79 +39,188 @@ var catalogStats vend.CatalogStats
 
 func getAllProducts() {
 
-	//Create new Vend Client.
-	vc := vend.NewClient(Token, DomainPrefix, "")
+	fmt.Println("Creating Product Export...")
 
-	//Get Products
-	fmt.Println("\nRetrieving Products...")
-	products, _, err := vc.Products()
-	if err != nil {
-		log.Printf("Failed retrieving products from Vend %v", err)
-		panic(vend.Exit{1})
-	}
-	catalogStats.TotalInventory = int64(len(products))
-	// Get Max Supplier
-	maxSupplier := checkMaxSupplier(products)
-	// Get SKUCodes
-	SKUCodesMap := buildSKUCodesMap(products)
-	// Get Max SkuType
-	maxSkuType := checkMaxSkuType(SKUCodesMap)
+	// Get Data
+	products, outlets, outletTaxes, taxMaps, inventoryRecords, tagsMap := getDataForProductsCmd()
 
-	// Get Outlets
-	outlets, outletsMap, err := vc.Outlets()
-	if err != nil {
-		log.Printf("Failed retrieving outlets from Vend %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get Outlet Taxes
-	outletTaxes, err := vc.OutletTaxes()
-	if err != nil {
-		log.Printf("Failed retrieving outlet taxes from Vend %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get Taxes
-	_, taxMaps, err := vc.Taxes()
-	if err != nil {
-		log.Printf("Failed retrieving taxes from Vend %v", err)
-		panic(vend.Exit{1})
-	}
-
-	// Get Inventory
-	inventoryRecords, err := vc.Inventory()
-	if err != nil {
-		fmt.Println("Error fetching inventory records")
-	}
-
-	// Get Tags
-	tagsMap, err := vc.Tags()
-	if err != nil {
-		fmt.Println("Error fetching tags")
-	}
-
-	// Build Maps
-	outletTaxesMap := buildOutletTaxesMap(outletTaxes, taxMaps, outlets)
-	recordsMap := buildRecordsMap(inventoryRecords, outlets)
+	// Parse Data
+	maxSupplier, SKUCodesMap, maxSkuType, outletTaxesMap, recordsMap := parseProductData(products, outlets, outletTaxes, taxMaps, inventoryRecords)
 
 	// Write Products to CSV
-	fmt.Printf("Writing products to CSV file...\n")
-	err = productsWriteFile(products, outlets, outletsMap, recordsMap, outletTaxesMap, tagsMap, maxSupplier, SKUCodesMap, maxSkuType)
+	fmt.Printf("\nWriting products to CSV file...\n")
+	err := productsWriteFile(products, outlets, recordsMap, outletTaxesMap, tagsMap, maxSupplier, SKUCodesMap, maxSkuType)
 	if err != nil {
-		log.Printf(color.RedString("Failed writing products to CSV: %v", err))
-		panic(vend.Exit{1})
+		err = fmt.Errorf("failed writing products to CSV: %v", err)
+		messenger.ExitWithError(err)
 	}
 
 	// Print happy message, and then display catalog stats
-	fmt.Println(color.GreenString("Export Finished!  🎉🎉🎉"))
+	fmt.Println(color.GreenString("\nExport Finished!  🎉🎉🎉"))
+
+	catalogStats.TotalInventory = int64(len(products))
 	printStats()
 
 }
 
+func getDataForProductsCmd() ([]vend.Product, []vend.Outlet, []vend.OutletTaxes, map[string]vend.Taxes, []vend.InventoryRecord, map[string]vend.Tags) {
+	fmt.Println("\nGetting data from Vend...")
+
+	var products []vend.Product
+	var outlets []vend.Outlet
+	var outletTaxes []vend.OutletTaxes
+	var taxMaps map[string]vend.Taxes
+	var inventoryRecords []vend.InventoryRecord
+	var tagsMap map[string]vend.Tags
+
+	p, err := pbar.CreateMultiBarGroup(6, Token, DomainPrefix)
+	if err != nil {
+		fmt.Println("error creating progress bar: ", err)
+	}
+
+	p.FetchDataWithProgressBar("products")
+	p.FetchDataWithProgressBar("outlets")
+	p.FetchDataWithProgressBar("outlet-taxes")
+	p.FetchDataWithProgressBar("taxes")
+	p.FetchDataWithProgressBar("inventory")
+	p.FetchDataWithProgressBar("product-tags")
+
+	p.MultiBarGroupWait()
+
+	for err = range p.ErrorChannel {
+		messenger.ExitWithError(err)
+	}
+
+	for data := range p.DataChannel {
+		switch d := data.(type) {
+		case []vend.Product:
+			products = d
+		case []vend.Outlet:
+			outlets = d
+		case []vend.OutletTaxes:
+			outletTaxes = d
+		case map[string]vend.Taxes:
+			taxMaps = d
+		case []vend.InventoryRecord:
+			inventoryRecords = d
+		case map[string]vend.Tags:
+			tagsMap = d
+		}
+	}
+
+	return products, outlets, outletTaxes, taxMaps, inventoryRecords, tagsMap
+
+}
+
+func parseProductData(products []vend.Product, outlets []vend.Outlet, outletTaxes []vend.OutletTaxes, taxMaps map[string]vend.Taxes, inventoryRecords []vend.InventoryRecord) (int,
+	map[string]map[string][]string, map[string]int, map[string]map[string]string, map[string]map[string]vend.InventoryRecord) {
+
+	fmt.Println("\nParsing product data...")
+
+	var maxSupplier int
+	var SKUCodesMap map[string]map[string][]string
+	var maxSkuType map[string]int
+	var outletTaxesMap map[string]map[string]string
+	var recordsMap map[string]map[string]vend.InventoryRecord
+
+	p, err := pbar.CreateMultiBarGroup(4, "", "")
+	if err != nil {
+		fmt.Println("error creating progress bar group: ", err)
+	}
+
+	p.WaitGroup.Add(1)
+	go func() {
+		defer p.WaitGroup.Done()
+
+		bar, err := p.AddIndeterminateProgressBar("max supplier")
+		if err != nil {
+			p.ErrorChannel <- err
+			return
+		}
+
+		done := make(chan struct{})
+		go bar.AnimateIndeterminateBar(done)
+
+		maxSupplier = checkMaxSupplier(products)
+
+		close(done)
+		bar.SetIndeterminateBarComplete()
+
+	}()
+
+	p.WaitGroup.Add(1)
+	go func() {
+		defer p.WaitGroup.Done()
+
+		bar, err := p.AddIndeterminateProgressBar("sku codes")
+		if err != nil {
+			p.ErrorChannel <- err
+			return
+		}
+
+		done := make(chan struct{})
+		go bar.AnimateIndeterminateBar(done)
+
+		SKUCodesMap = buildSKUCodesMap(products)
+
+		close(done)
+		bar.SetIndeterminateBarComplete()
+
+	}()
+
+	p.WaitGroup.Add(1)
+	go func() {
+		defer p.WaitGroup.Done()
+
+		bar, err := p.AddIndeterminateProgressBar("outlet taxes")
+		if err != nil {
+			p.ErrorChannel <- err
+			return
+		}
+
+		done := make(chan struct{})
+		go bar.AnimateIndeterminateBar(done)
+
+		outletTaxesMap = buildOutletTaxesMap(outletTaxes, taxMaps, outlets)
+
+		close(done)
+		bar.SetIndeterminateBarComplete()
+
+	}()
+
+	p.WaitGroup.Add(1)
+	go func() {
+		defer p.WaitGroup.Done()
+
+		bar, err := p.AddIndeterminateProgressBar("outlet taxes")
+		if err != nil {
+			p.ErrorChannel <- err
+			return
+		}
+
+		done := make(chan struct{})
+		go bar.AnimateIndeterminateBar(done)
+
+		recordsMap = buildRecordsMap(inventoryRecords, outlets)
+
+		close(done)
+		bar.SetIndeterminateBarComplete()
+
+	}()
+	p.MultiBarGroupWait()
+
+	for err = range p.ErrorChannel {
+		messenger.ExitWithError(err)
+	}
+
+	maxSkuType = checkMaxSkuType(SKUCodesMap)
+
+	return maxSupplier, SKUCodesMap, maxSkuType, outletTaxesMap, recordsMap
+}
+
 // Creates CSV file and then prints product info to it
-func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
-	outletsMap map[string][]vend.Outlet, recordsMap map[string]map[string]vend.InventoryRecord,
-	outletTaxesMap map[string]map[string]string, tagsMap map[string]string, maxSupplier int, skuCodes map[string]map[string][]string, maxSkuType map[string]int) error {
+func productsWriteFile(products []vend.Product, outlets []vend.Outlet, recordsMap map[string]map[string]vend.InventoryRecord,
+	outletTaxesMap map[string]map[string]string, tagsMap map[string]vend.Tags, maxSupplier int, skuCodes map[string]map[string][]string, maxSkuType map[string]int) error {
 
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_product_export_%v.csv", DomainPrefix, time.Now().Unix())
@@ -285,10 +396,16 @@ func productsWriteFile(products []vend.Product, outlets []vend.Outlet,
 
 		// create a comma seperated list of tags
 		for idx, tag := range product.TagIDs {
+			tagName := ""
+			if tag, ok := tagsMap[*tag]; ok {
+				if tag.Name != nil {
+					tagName = *tag.Name
+				}
+			}
 			if idx == 0 {
-				tagsList = tagsMap[*tag]
+				tagsList = tagName
 			} else {
-				tagsList = fmt.Sprintf("%s,%s", tagsList, tagsMap[*tag])
+				tagsList = fmt.Sprintf("%s,%s", tagsList, tagName)
 			}
 		}
 
@@ -567,7 +684,7 @@ func buildRecordsMap(inventoryRecords []vend.InventoryRecord, outlets []vend.Out
 }
 
 // build hash table so tax display name for given product/outlet pair can be quickly accessed
-func buildOutletTaxesMap(outletTaxes []vend.OutletTaxes, TaxesMap map[string]string, outlets []vend.Outlet) map[string]map[string]string {
+func buildOutletTaxesMap(outletTaxes []vend.OutletTaxes, TaxesMap map[string]vend.Taxes, outlets []vend.Outlet) map[string]map[string]string {
 	var outletTaxesMap = map[string]map[string]string{}
 
 	// set outlet maps, first
@@ -583,8 +700,10 @@ func buildOutletTaxesMap(outletTaxes []vend.OutletTaxes, TaxesMap map[string]str
 
 			// make sure a give Outlet map exists, a Tax map exists, then set product map
 			if _, ok := outletTaxesMap[*outletTax.OutletID]; ok {
-				if taxDisplayName, ok := TaxesMap[*outletTax.TaxID]; ok {
-					outletTaxesMap[*outletTax.OutletID][*outletTax.ProductID] = taxDisplayName
+				if tax, ok := TaxesMap[*outletTax.TaxID]; ok {
+					if tax.DisplayName != nil {
+						outletTaxesMap[*outletTax.OutletID][*outletTax.ProductID] = *tax.DisplayName
+					}
 				}
 			}
 		}
