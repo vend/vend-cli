@@ -33,7 +33,7 @@ var importImagesCmd = &cobra.Command{
 	Use:   "import-images",
 	Short: "Import Product Images",
 	Long: fmt.Sprintf(`
-This tool requires the Import Images CSV template, you can download it here: http://bit.ly/vendclitemplates
+This tool requires the Import Images CSV template, you can download it here: https://bit.ly/vendcli-csv-templates
 
 Example:
 %s`, color.GreenString("vendcli import-images -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),

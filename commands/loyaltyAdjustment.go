@@ -26,7 +26,7 @@ var loyaltyAdjustmentCmd = &cobra.Command{
 	Use:   "loyalty-adjustment",
 	Short: "Customer Loyalty Adjustment",
 	Long: fmt.Sprintf(`
-This tool requires the Customer Loyalty Adjustment CSV template, you can download it here: http://bit.ly/vendclitemplates
+This tool requires the Customer Loyalty Adjustment CSV template, you can download it here: https://bit.ly/vendcli-csv-templates
 
 Example:
 %s`, color.GreenString("vendcli loyalty-adjustment -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),

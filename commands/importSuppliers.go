@@ -25,7 +25,7 @@ var importSuppliersCmd = &cobra.Command{
 	Use:   "import-suppliers",
 	Short: "Import Suppliers",
 	Long: fmt.Sprintf(`
-This tool requires the Supplier CSV template, you can download it here: http://bit.ly/vendclitemplates
+This tool requires the Supplier CSV template, you can download it here: https://bit.ly/vendcli-csv-templates
 
 Example:
 %s`, color.GreenString("vendcli import-suppliers -d DOMAINPREFIX -t TOKEN -f FILENAME.csv")),

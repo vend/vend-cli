@@ -50,6 +50,7 @@ var (
 update-average-cost will update the average cost of products in Vend, based on the CSV file you provide.
 
 The CSV file should have the following format:
+Template: https://bit.ly/vendcli-csv-templates
 +------------+---------------+------------+---------------+------------+-----+---------------+------------+
 | product_id | outlet_1 name | avg_cost_1 | outlet_2 name | avg_cost_2 | ... | outlet_n name | avg_cost_n |
 +------------+---------------+------------+---------------+------------+-----+---------------+------------+

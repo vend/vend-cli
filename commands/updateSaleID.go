@@ -38,6 +38,7 @@ If you are unsure of its use, %s and seek help from a Product Specialist
 
 
 csv should be in the following format
+Template: https://bit.ly/vendcli-csv-templates
 +-------------+-------------+
 |   sale_id   |   user_id   |
 +-------------+-------------+
