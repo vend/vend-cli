@@ -2,12 +2,16 @@ package cmd
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/vend/vend-cli/pkg/csvparser"
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/google/uuid"
@@ -15,9 +19,17 @@ import (
 	"github.com/vend/govend/vend"
 )
 
+type FailedUpdateStoreCreditRequests struct {
+	CustomerID   string
+	CustomerCode string
+	Amount       string
+	Reason       string
+}
+
 // Command config
 var (
-	submitMode string
+	submitMode                      string
+	failedUpdateStoreCreditRequests []FailedUpdateStoreCreditRequests
 
 	updateStorecreditCmd = &cobra.Command{
 		Use:   "update-storecredits",
@@ -78,87 +90,89 @@ func updateStoreCredit() {
 		err := fmt.Errorf("'%s' is not a valid option for -m mode. Mode should be 'adjust' or replace'", submitMode)
 		messenger.ExitWithError(err)
 	}
+	fmt.Printf("\nRunning command in %s mode\n", color.YellowString(strings.ToUpper(submitMode)))
 
 	// Create new Vend Client.
 	vc := vend.NewClient(Token, DomainPrefix, "")
 	vendClient = &vc
 
-	// Read rows from CSV file and store them into structs
-	// Check if we've got customer codes in the csv
 	fmt.Println("\nReading Store Credits CSV...")
 	csvRows, usesCustomerCodes, err := readStoreCreditCSV(FilePath, submitMode)
 	if err != nil {
-		err = fmt.Errorf("Couldnt read Store Credits CSV file,  %s", err)
+		err = fmt.Errorf("couldnt read Store Credits CSV file,  %s", err)
 		messenger.ExitWithError(err)
 	}
 
-	// if there are submitted customer_codes, convert them to customer_id
-	if usesCustomerCodes {
-		fmt.Println("CSV contains customer codes, setting customer ids..")
-		csvRows, err = getCustomerIDs(vc, csvRows)
+	fmt.Println("\nMake Transactions...")
+	transactions, err := makeTransactions(csvRows, usesCustomerCodes)
+	if err != nil {
+		err = fmt.Errorf("couldnt make transactions,  %s", err)
+		messenger.ExitWithError(err)
+	}
+
+	numTransactions := len(transactions)
+	fmt.Printf("\n Posting %v Store Credits..\n", numTransactions)
+	numPosted := postStoreCredit(transactions)
+
+	if len(failedUpdateStoreCreditRequests) > 0 {
+		fmt.Println(color.RedString("\n\nThere were some errors. Writing failures to csv.."))
+		fileName := fmt.Sprintf("%s_failed_update_storecredit_requests_%v.csv", DomainPrefix, time.Now().Unix())
+		err := csvparser.WriteErrorCSV(fileName, failedUpdateStoreCreditRequests)
 		if err != nil {
-			err = fmt.Errorf("not able to map customer ids to codes", err)
+			err = fmt.Errorf("failed to write error csv: %w", err)
 			messenger.ExitWithError(err)
 		}
 	}
 
-	// if mode is replace the transaction amount should be newBalance - currentBalance
-	if submitMode == "replace" {
-		updateAmounts(vc, csvRows)
-	}
-
-	//Get primary admin
-	primaryAdmin := getPrimaryAdmin(vc)
-
-	// make the bodys for our requests from the csvRows
-	transactions := makeTransactions(csvRows, primaryAdmin)
-
-	// Post Store Credits to Vend
-	var numPosted int
-	numTransactions := len(transactions)
-	fmt.Printf("%v Store Credits to post\n\n", numTransactions)
-	for _, transaction := range transactions {
-		if postStoreCredit(transaction) {
-			numPosted++
-		}
-	}
-
-	fmt.Println(color.GreenString("\nFinished! Succesfully Posted %s of %s Store Credits 🎉\n",
+	fmt.Println(color.GreenString("\nFinished! 🎉\nSuccesfully Posted %s of %s Store Credits \n",
 		strconv.Itoa(numPosted), strconv.Itoa(numTransactions)))
 }
 
 // Read passed CSV, returns a slice of Store Credits
 func readStoreCreditCSV(filePath string, submitMode string) ([]vend.StoreCreditCsv, bool, error) {
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
+	if err != nil {
+		err = fmt.Errorf("error creating progress bar:%s", err)
+		return nil, false, err
+	}
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
 	// Open our provided CSV file
 	file, err := os.Open(filePath)
 	if err != nil {
-		errorMsg := `error opening csv file - please check you've specified the right file
-
-Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
-		err = fmt.Errorf(errorMsg, "\n")
-		messenger.ExitWithError(err)
+		err = fmt.Errorf(`%s - please check you've specified the right file path.%sTip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`, err, "\n")
+		bar.AbortBar()
+		p.Wait()
+		return nil, false, err
 	}
-	// Make sure to close at end
 	defer file.Close()
-
-	// Create CSV reader on our file
 	reader := csv.NewReader(file)
 
 	// Read and store our header line.
 	headerRow, err := reader.Read()
 	if err != nil {
-		err = fmt.Errorf("Error reading header row")
-		messenger.ExitWithError(err)
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("error reading header row")
+		return nil, false, err
 	}
 
 	// Check each header in the row is same as our template. Fail if not
-	checkHeaders(submitMode, headerRow)
+	if err = checkHeaders(submitMode, headerRow); err != nil {
+		bar.AbortBar()
+		p.Wait()
+		return nil, false, err
+	}
 
 	// Read the rest of the data from the CSV
 	rawData, err := reader.ReadAll()
 	if err != nil {
-		err = fmt.Errorf("Error reading data from csv", err)
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("error reading data from csv: %w", err)
 		messenger.ExitWithError(err)
 	}
 
@@ -166,11 +180,17 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 	usesCustomerCodes := false
 
 	// Loop through rows and assign them to a StoreCreditCsv struct.
-	for idx, row := range rawData {
-
-		amount, err := strconv.ParseFloat(row[2], 10)
+	for _, row := range rawData {
+		amount, err := strconv.ParseFloat(row[2], 64)
 		if err != nil {
-			fmt.Printf("%s, \nError:%s - invalid amount \nSkipping...", color.RedString("Error in row %s", strconv.Itoa(idx+2)), err)
+			err = errors.New("invalid amount")
+			failedUpdateStoreCreditRequests = append(failedUpdateStoreCreditRequests,
+				FailedUpdateStoreCreditRequests{
+					CustomerID:   row[0],
+					CustomerCode: row[1],
+					Amount:       row[2],
+					Reason:       err.Error(),
+				})
 			continue
 		}
 
@@ -184,66 +204,58 @@ Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to n
 		if *rowStruct.CustomerCode != "" {
 			usesCustomerCodes = true
 		} else if *rowStruct.CustomerID == "" {
-			fmt.Printf("%s: You must have at least customer_id or customer_code \nSkipping row...\n\n", color.RedString("Error in row %s", strconv.Itoa(idx+2)))
+			err = errors.New("you must have at least customer_id or customer_code")
+			failedUpdateStoreCreditRequests = append(failedUpdateStoreCreditRequests,
+				FailedUpdateStoreCreditRequests{
+					CustomerID:   row[0],
+					CustomerCode: row[1],
+					Amount:       row[2],
+					Reason:       err.Error(),
+				})
 			continue
 		}
-
-		// Append struct into our array of structs
 		csvStructs = append(csvStructs, rowStruct)
 	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
 
 	return csvStructs, usesCustomerCodes, err
 }
 
 // Post each Store Credits to Vend
-func postStoreCredit(storeCredit vend.StoreCreditTransaction) bool {
+func postStoreCredit(transactions []vend.StoreCreditTransaction) int {
 
-	// Posting Store Credits to Vend
-	fmt.Printf("Posting: %s / %v \n", storeCredit.CustomerID, storeCredit.Amount)
-	if postTransaction(storeCredit) {
-		return true
-	} else {
-		return false
-	}
-}
-
-func postTransaction(trans vend.StoreCreditTransaction) bool {
-
-	// Create the Vend URL
-	url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/store_credits/%s/transactions", DomainPrefix, trans.CustomerID)
-
-	// Make the Request
-	resBody, err := vendClient.MakeRequest("POST", url, trans)
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(transactions), "Posting Store Credits")
 	if err != nil {
-		fmt.Println(color.RedString("\nFailed to post store credit transaction for customer: %s", trans.CustomerID), "\nServer Response:\n", string(resBody), "\n")
-		return false
+		fmt.Printf("error creating progress bar:%s\n", err)
 	}
 
-	return true
-}
-
-func getPrimaryAdmin(vc vend.Client) string {
-
-	// Get Users.
-	users, err := vc.Users()
-	if err != nil {
-		err = fmt.Errorf("Failed retrieving Users from Vend %v", err)
-		messenger.ExitWithError(err)
-	}
-
-	var primaryAdmin string
-	for _, user := range users {
-		if *user.IsPrimaryUser {
-			primaryAdmin = *user.ID
-			break
+	var count int = 0
+	for _, transaction := range transactions {
+		bar.Increment()
+		url := fmt.Sprintf("https://%s.vendhq.com/api/2.0/store_credits/%s/transactions", DomainPrefix, transaction.CustomerID)
+		resp, err := vendClient.MakeRequest("POST", url, transaction)
+		if err != nil {
+			err = fmt.Errorf("error posting store credit transaction: %s response: %s", err, string(resp))
+			failedUpdateStoreCreditRequests = append(failedUpdateStoreCreditRequests,
+				FailedUpdateStoreCreditRequests{
+					CustomerID:   transaction.CustomerID,
+					CustomerCode: "",
+					Amount:       strconv.FormatFloat(transaction.Amount, 'f', -1, 64),
+					Reason:       err.Error(),
+				})
+			continue
 		}
-
+		count += 1
 	}
-	return primaryAdmin
+	p.Wait()
+	return count
 }
 
 // checkHeaders makes sure the submitted CSV headers matches our desired format
-func checkHeaders(submitMode string, headerRow []string) {
+func checkHeaders(submitMode string, headerRow []string) error {
 	headers := [3]string{"customer_id", "customer_code", ""}
 	if submitMode == "replace" {
 		headers[2] = "new_balance"
@@ -253,32 +265,132 @@ func checkHeaders(submitMode string, headerRow []string) {
 
 	for i := range headerRow {
 		if headerRow[i] != headers[i] {
-			fmt.Println(color.RedString("Found error in header rows."))
-			err := fmt.Errorf("Found error in header rows.\n\n 🛑 Looks like we have a mismatch in headers, this mode (%s) needs three headers: customer_id, customer_code, %s \n No header match for: %s instead got: %s \n\n",
+			err := fmt.Errorf("mismatch in headers, this mode (%s) needs three headers: customer_id, customer_code, %s. No header match for: %s instead got: %s",
 				submitMode, string(headers[2]), string(headers[i]), string(headerRow[i]))
-			messenger.ExitWithError(err)
+			return err
+		}
+	}
+	return nil
+}
+
+// makeTransactions takes the info from csvStructs and makes bodys for our POST requests
+func makeTransactions(csvRows []vend.StoreCreditCsv, usesCustomerCodes bool) ([]vend.StoreCreditTransaction, error) {
+	var transactions []vend.StoreCreditTransaction
+	var userID string
+
+	// fetch data from vend
+	user, customers, storeCredits, err := fetchDataForTransactions(usesCustomerCodes)
+	if err != nil {
+		err = fmt.Errorf("failed to fetch data for transactions: %v", err)
+		return nil, err
+	}
+
+	// parse data - can't make this a wg since they all update the same data
+	if usesCustomerCodes {
+		csvRows, err = addCustomerIDsToStruct(csvRows, customers)
+		if err != nil {
+			err = fmt.Errorf("not able to map customer ids to codes: %w", err)
+			return nil, err
+		}
+	}
+	if submitMode == "replace" {
+		csvRows, err = updateAmounts(csvRows, storeCredits)
+		if err != nil {
+			err = fmt.Errorf("not able to update amounts: %w", err)
+			return nil, err
+		}
+	}
+	if user.ID != nil {
+		userID = *user.ID
+	} else {
+		err = fmt.Errorf("failed to get user ID from token - check your token")
+		return nil, err
+	}
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(csvRows), "Make Transactions")
+	if err != nil {
+		fmt.Printf("error creating progress bar:%s\n", err)
+	}
+
+	for _, rowStruct := range csvRows {
+		bar.Increment()
+		var transType string
+		clientID := uuid.New().String()
+
+		if *rowStruct.Amount < 0 {
+			transType = "REDEMPTION"
+		} else {
+			transType = "ISSUE"
+		}
+		transaction := vend.StoreCreditTransaction{
+			CustomerID: *rowStruct.CustomerID,
+			Amount:     *rowStruct.Amount,
+			Type:       transType,
+			ClientID:   &clientID,
+			UserID:     &userID,
+		}
+		transactions = append(transactions, transaction)
+	}
+
+	p.Wait()
+	return transactions, nil
+}
+
+func fetchDataForTransactions(usesCustomerCodes bool) (vend.User, []vend.Customer, []vend.StoreCredit, error) {
+	var err error
+	var user vend.User
+	var customers []vend.Customer
+	var storeCredits []vend.StoreCredit
+
+	// fetch data from vend
+	p, err := pbar.CreateMultiBarGroup(3, Token, DomainPrefix)
+	if err != nil {
+		fmt.Println("error creating progress bar: ", err)
+	}
+
+	p.FetchDataWithProgressBar("user")
+	if usesCustomerCodes {
+		p.FetchDataWithProgressBar("customers")
+	}
+	if submitMode == "replace" {
+		p.FetchDataWithProgressBar("store-credits")
+	}
+	p.MultiBarGroupWait()
+
+	for err = range p.ErrorChannel {
+		return user, customers, storeCredits, err
+	}
+	for data := range p.DataChannel {
+		switch d := data.(type) {
+		case vend.User:
+			user = d
+		case []vend.Customer:
+			customers = d
+		case []vend.StoreCredit:
+			storeCredits = d
 		}
 	}
 
+	return user, customers, storeCredits, nil
 }
 
-// getCustomerIDs finds the associated customer_ids for a given customer_code
-func getCustomerIDs(vc vend.Client, csvRows []vend.StoreCreditCsv) ([]vend.StoreCreditCsv, error) {
+// addCustomerIDsToStruct finds the associated customer_ids for a given customer_code
+func addCustomerIDsToStruct(csvRows []vend.StoreCreditCsv, customers []vend.Customer) ([]vend.StoreCreditCsv, error) {
 
-	// Get Customers
-	customers, err := vc.Customers()
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(csvRows), "Mapping Customer IDs")
 	if err != nil {
-		err = fmt.Errorf("Failed retrieving customers from Vend %v", err)
-		messenger.ExitWithError(err)
+		fmt.Printf("error creating progress bar:%s\n", err)
 	}
 
 	// Build Customer Map
 	customerMap := vend.CustomerMap(customers)
-
 	// Loop through our csv row structs and attach a customer_id if one doesn't exist,
 	// if succesful include that in an updated struct array
 	var updatedCSVRows []vend.StoreCreditCsv
-	for idx, rowStruct := range csvRows {
+	for _, rowStruct := range csvRows {
+		bar.Increment()
 		// skip if we've already got a customer_id
 		if len(*rowStruct.CustomerID) > 0 {
 			updatedCSVRows = append(updatedCSVRows, rowStruct)
@@ -290,65 +402,54 @@ func getCustomerIDs(vc vend.Client, csvRows []vend.StoreCreditCsv) ([]vend.Store
 				*rowStruct.CustomerID = customerID
 				updatedCSVRows = append(updatedCSVRows, rowStruct)
 			} else {
-				fmt.Println(color.RedString("The customer code '%s' in row %s does not seem to be valid, skipping..",
-					*rowStruct.CustomerCode, strconv.Itoa(idx+2)))
+				err = fmt.Errorf("invalid customer code. can not match to customer id")
+				failedUpdateStoreCreditRequests = append(failedUpdateStoreCreditRequests,
+					FailedUpdateStoreCreditRequests{
+						CustomerID:   *rowStruct.CustomerID,
+						CustomerCode: *rowStruct.CustomerCode,
+						Amount:       strconv.FormatFloat(*rowStruct.Amount, 'f', -1, 64),
+						Reason:       err.Error(),
+					})
 			}
 		}
 	}
-
-	return updatedCSVRows, err
+	p.Wait()
+	return updatedCSVRows, nil
 }
 
-func updateAmounts(vc vend.Client, csvRows []vend.StoreCreditCsv) error {
+// if mode is replace the transaction amount should be newBalance - currentBalance
+func updateAmounts(csvRows []vend.StoreCreditCsv, storeCredits []vend.StoreCredit) ([]vend.StoreCreditCsv, error) {
 
-	// get current balances
-	storeCredits, err := vc.StoreCredits()
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(csvRows), "Updating Amounts")
 	if err != nil {
-		err = fmt.Errorf("Failed while retrieving store credits: %v", err)
-		messenger.ExitWithError(err)
+		fmt.Printf("error creating progress bar:%s\n", err)
 	}
-
 	// make customer id -> customer balance map
 	creditMap := vend.CreditMap(storeCredits)
-
 	// loop through structs and update the amount
+	var updatedCSVRows []vend.StoreCreditCsv
 	for _, rowStruct := range csvRows {
-
+		bar.Increment()
 		if currentBalance, ok := creditMap[*rowStruct.CustomerID]; ok {
 			*rowStruct.Amount = *rowStruct.Amount - currentBalance
-
-		}
-
-	}
-
-	return err
-}
-
-// makeTransactions takes the info from csvStructs and makes bodys for our POST requests
-func makeTransactions(csvRows []vend.StoreCreditCsv, primaryAdmin string) []vend.StoreCreditTransaction {
-
-	var transactions []vend.StoreCreditTransaction
-
-	for _, rowStruct := range csvRows {
-
-		var transType string
-		if *rowStruct.Amount < 0 {
-			transType = "REDEMPTION"
+			updatedCSVRows = append(updatedCSVRows, rowStruct)
 		} else {
-			transType = "ISSUE"
+			err = fmt.Errorf("invalid customer id. can not match to customer balance")
+			failedUpdateStoreCreditRequests = append(failedUpdateStoreCreditRequests,
+				FailedUpdateStoreCreditRequests{
+					CustomerID:   *rowStruct.CustomerID,
+					CustomerCode: *rowStruct.CustomerCode,
+					Amount:       strconv.FormatFloat(*rowStruct.Amount, 'f', -1, 64),
+					Reason:       err.Error(),
+				})
 		}
-
-		clientID := uuid.New().String()
-
-		transaction := vend.StoreCreditTransaction{
-			CustomerID: *rowStruct.CustomerID,
-			Amount:     *rowStruct.Amount,
-			Type:       transType,
-			ClientID:   &clientID,
-			UserID:     &primaryAdmin,
-		}
-		transactions = append(transactions, transaction)
 	}
+	p.Wait()
 
-	return transactions
+	if len(updatedCSVRows) == 0 {
+		err = fmt.Errorf("no valid customer ids found")
+		return nil, err
+	}
+	return updatedCSVRows, nil
 }
