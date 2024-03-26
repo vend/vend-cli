@@ -10,13 +10,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/csvparser"
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/vend/govend/vend"
 	"github.com/wallclockbuilder/stringutil"
 )
+
+type FailedUpdateSaleIDRequests struct {
+	SaleID string
+	UserID string
+	Reason string
+}
 
 // Command config
 var updateSaleIDcmd = &cobra.Command{
@@ -37,6 +45,7 @@ csv should be in the following format
 +-------------+-------------+
 
 ** Also prints a "post in case of emergency" log file 
+** filename: DOMAINNAME_update_saleid_original_sales_before_update_TIMESTAMP.txt
 ** Keep this file, in case an issue occurs we can use this to recover data
 
 Example: %s
@@ -51,6 +60,8 @@ Example: %s
 	},
 }
 
+var failedUpdateSaleIDRequests []FailedUpdateSaleIDRequests
+
 func init() {
 	// Flag
 	updateSaleIDcmd.Flags().StringVarP(&FilePath, "Filename", "f", "", "The name of your file: filename.csv")
@@ -63,14 +74,18 @@ func init() {
 func updateSaleID() {
 
 	// Create Log File
-	logFileName := fmt.Sprintf("%s_post_in_case_of_emergency_%v.txt", DomainPrefix, time.Now().Unix())
+	logFileName := fmt.Sprintf("%s_update_saleid_original_sales_before_update_%v.txt", DomainPrefix, time.Now().Unix())
 	logFile, err := os.OpenFile(fmt.Sprintf("./%s", logFileName), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		err = fmt.Errorf("error:%s", err)
 		messenger.ExitWithError(err)
 	}
+	fmt.Println("\nSaving original sales to: ", color.YellowString(logFileName))
+	fmt.Println("-- Keep this file, in case an issue occurs we can use this to recover data --")
 	log.SetOutput(logFile)
+	defer logFile.Close()
 
+	fmt.Println("\n\nStarting Command Update Sale User ID..")
 	// Create new Vend Client.
 	vc := vend.NewClient(Token, DomainPrefix, "")
 	vendClient = &vc
@@ -79,18 +94,47 @@ func updateSaleID() {
 	fmt.Printf("\nReading CSV...\n")
 	saleList, err := ReadSaleUserCSV(FilePath)
 	if err != nil {
-		fmt.Printf(color.RedString("Failed to get ids from the file: %s", FilePath))
+		err = fmt.Errorf("failed to get ids from the file: %s, error: %w", FilePath, err)
+		messenger.ExitWithError(err)
 	}
 
 	// loop through entities, fetch the data from vend, swap sale_id, and post to vend
+	fmt.Println("\nUpdating Sales...")
+	succesfulPosts := PostUpdateSaleID(saleList)
+
+	if len(failedUpdateSaleIDRequests) > 0 {
+		fmt.Println(color.RedString("\nThere were some errors. Writing failures to csv.."))
+		fileName := fmt.Sprintf("%s_failed_update_saleid_requests_%v.csv", DomainPrefix, time.Now().Unix())
+		err := csvparser.WriteErrorCSV(fileName, failedUpdateSaleIDRequests)
+		if err != nil {
+			messenger.ExitWithError(err)
+			return
+		}
+
+	}
+	fmt.Println(color.GreenString("\n\nFinished! 🎉\nSuccesfully adjusted %d of %d sales", succesfulPosts, len(saleList)))
+}
+
+func PostUpdateSaleID(saleList []vend.SaleUserUpload) int {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(saleList), "Updating")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+	var count int = 0
 	for _, saleRequest := range saleList {
-		fmt.Printf("Updating %s:", saleRequest.SaleID)
+		bar.Increment()
 
 		// Get Sale
 		sale, err := getSale9(saleRequest.SaleID)
-		// If there's an error getting sale, skip to the next one
 		if err != nil {
-			fmt.Printf("%s", color.RedString(" ERROR %s\n", err))
+			err = fmt.Errorf("error getting sale info: %s", err)
+			failedUpdateSaleIDRequests = append(failedUpdateSaleIDRequests,
+				FailedUpdateSaleIDRequests{
+					SaleID: saleRequest.SaleID,
+					UserID: saleRequest.UserID,
+					Reason: err.Error(),
+				})
 			continue
 		}
 
@@ -98,32 +142,22 @@ func updateSaleID() {
 		sale = changeUser(sale, saleRequest.UserID)
 
 		// Make the request
-		var res []byte
 		url := fmt.Sprintf("https://%s.vendhq.com/api/register_sales", DomainPrefix)
-		res, err = vendClient.MakeRequest("POST", url, sale)
-
-		// Check if there is an error in the response; if so display it
-		// TODO: We should be using response code for this, but that's not being returned by MakeRequest
-		responseStr := string(res)
-		response := vend.Error9{}
-		_ = json.Unmarshal(res, &response)
-
-		//uncomment below line for debugging
-		//fmt.Println(responseStr)
-
+		resp, err := vendClient.MakeRequest("POST", url, sale)
 		if err != nil {
-			fmt.Printf("Error maing request: %v\n", err)
-		} else if len(response.Error) > 0 {
-			fmt.Printf("%s", color.RedString(" %s\n", response.Error))
-			if len(response.Details) > 0 {
-				fmt.Printf("%s", color.RedString(" %s\n", response.Details))
-			}
-		} else if strings.HasPrefix(responseStr, "<!DOCTYPE html>") {
-			fmt.Printf("%s - Check if user_id is correct\n", color.RedString(" ERROR"))
-		} else {
-			fmt.Printf("%s", color.GreenString(" UPDATED\n"))
+			err = fmt.Errorf("error updating sale info: %s, response: %s", err, string(resp))
+			failedUpdateSaleIDRequests = append(failedUpdateSaleIDRequests,
+				FailedUpdateSaleIDRequests{
+					SaleID: saleRequest.SaleID,
+					UserID: saleRequest.UserID,
+					Reason: err.Error(),
+				})
+			continue
 		}
+		count += 1
 	}
+	p.Wait()
+	return count
 }
 
 // getSale9 pulls sales information from the 0.9 Vend API
@@ -134,16 +168,18 @@ func getSale9(id string) (vend.Sale9, error) {
 
 	// Create the Vend URL
 	url := fmt.Sprintf("https://%s.vendhq.com/api/register_sales/%s", DomainPrefix, id)
-
-	// Make the request
 	res, err := vendClient.MakeRequest("GET", url, nil)
-
+	if err != nil {
+		err = fmt.Errorf("error getting sale info: %s", err)
+		return sale, err
+	}
 	// log the sale info for later in case we need to recover it
 	log.Println(id, string(res))
 
 	// Unmarshal JSON Response
 	err = json.Unmarshal(res, &saleResponse)
 	if err != nil {
+		err = fmt.Errorf("error unmarshalling sale info: %s", err)
 		return sale, err
 	}
 
@@ -160,7 +196,6 @@ func getSale9(id string) (vend.Sale9, error) {
 func changeUser(sale vend.Sale9, userID string) vend.Sale9 {
 
 	*sale.UserID = userID
-
 	// also set any salesperson ids to new desired user
 	if len(sale.RegisterSaleProducts) > 0 {
 		for _, product := range sale.RegisterSaleProducts {
@@ -171,76 +206,92 @@ func changeUser(sale vend.Sale9, userID string) vend.Sale9 {
 			}
 		}
 	}
-
 	return sale
 }
 
 // ReadSaleUserCSV reads the provided CSV file and stores the input as sale structs.
 func ReadSaleUserCSV(FilePath string) ([]vend.SaleUserUpload, error) {
-	header := []string{"sale_id", "user_id"}
 
-	// Open our provided CSV file.
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
+	if err != nil {
+		err = fmt.Errorf("error creating progress bar:%s", err)
+		return nil, err
+	}
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
 	file, err := os.Open(FilePath)
 	if err != nil {
-		errorMsg := `error opening csv file - please check you've specified the right file
-
-Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
-		fmt.Println(errorMsg, "\n")
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf(`%s - please check you've specified the right file path.%sTip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`, err, "\n")
 		return []vend.SaleUserUpload{}, err
 	}
-	// Make sure to close at end.
 	defer file.Close()
-
-	// Create CSV reader on our file.
 	reader := csv.NewReader(file)
 
-	// Read and store our header line.
+	header := []string{"sale_id", "user_id"}
 	headerRow, err := reader.Read()
 	if err != nil {
-		fmt.Printf("Failed to read headerow.")
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("failed to read headerow. %w", err)
 		return []vend.SaleUserUpload{}, err
 	}
 
 	if len(headerRow) > 2 {
-		fmt.Printf("Header row longer than expected")
+		bar.AbortBar()
+		p.Wait()
+		err = errors.New("header row longer than expected")
+		return []vend.SaleUserUpload{}, err
 	}
 
 	// Check each string in the header row is same as our template.
 	for i, row := range headerRow {
 		if stringutil.Strip(strings.ToLower(row)) != header[i] {
-			fmt.Println("Mismatched CSV headers, expecting {sale_id, user_id}")
-			return []vend.SaleUserUpload{}, fmt.Errorf("Mistmatched Headers %v", err)
+			bar.AbortBar()
+			p.Wait()
+			err = fmt.Errorf("mismatched CSV headers, expecting {sale_id, user_id}")
+			return []vend.SaleUserUpload{}, fmt.Errorf("mistmatched headers %v", err)
 		}
 	}
 
 	// Read the rest of the data from the CSV.
 	rawData, err := reader.ReadAll()
 	if err != nil {
+		bar.AbortBar()
+		p.Wait()
 		return []vend.SaleUserUpload{}, err
 	}
 
+	// Loop through rows and assign them to saleUserUpload struct.
 	var sale vend.SaleUserUpload
 	var saleList []vend.SaleUserUpload
-	var rowNumber int
-
-	// Loop through rows and assign them to saleUserUpload struct.
-	for _, row := range rawData {
-		rowNumber++
+	for idx, row := range rawData {
 		sale, err = readSaleUserRow(row)
 		if err != nil {
-			fmt.Println("Error reading row from CSV")
+			err = fmt.Errorf("error reading csv row %d: %s", idx+1, err) // +1 to make it 1-indexed
+			failedUpdateSaleIDRequests = append(failedUpdateSaleIDRequests,
+				FailedUpdateSaleIDRequests{
+					SaleID: row[0],
+					UserID: row[1],
+					Reason: err.Error(),
+				})
 			continue
 		}
-
-		// Append each saleUserUpload struct to our list.
 		saleList = append(saleList, sale)
 	}
-
 	// Check how many rows we successfully read and stored.
 	if len(saleList) > 0 {
 	} else {
-		fmt.Println("No valid sales found")
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("no valid sales found")
+		return saleList, err
 	}
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
 
 	return saleList, err
 }
@@ -254,7 +305,7 @@ func readSaleUserRow(row []string) (vend.SaleUserUpload, error) {
 
 	for i := range row {
 		if len(row[i]) < 1 {
-			err := errors.New("Missing field")
+			err := errors.New("missing field")
 			return sale, err
 		}
 	}

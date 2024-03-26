@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -33,29 +34,62 @@ func init() {
 
 func exportOutlets() {
 
-	// Get Vend Client
-	vc := vend.NewClient(Token, DomainPrefix, "")
-
 	// Get Outlets
-	outlets, _, err := vc.Outlets()
+	fmt.Println("\nRetrieving Outlets from Vend...")
+	outlets := fetchDataForOutletExport()
+
+	// Write Outlets to CSV
+	fmt.Println("\nWriting Outlets to CSV file...")
+	err := writeOutletExport(outlets)
 	if err != nil {
-		err = fmt.Errorf("Failed retrieving outlets from Vend %v", err)
+		err = fmt.Errorf("failed creating CSV file %v", err)
 		messenger.ExitWithError(err)
 	}
 
-	file, err := createOutletReport(DomainPrefix)
-	if err != nil {
-		err = fmt.Errorf("Failed creating CSV file %v", err)
-		messenger.ExitWithError(err)
-	}
-
-	file = addHeaderOutletReport(file)
-	file = writeOutletReport(file, outlets)
-	fmt.Printf("Exported %v outlets to %s\n", len(outlets), file.Name())
+	fmt.Println(color.GreenString("\nExported %v outlets 🎉\n", len(outlets)))
 
 }
 
-func createOutletReport(domainPrefix string) (*os.File, error) {
+func fetchDataForOutletExport() []vend.Outlet {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("outlets")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	// Create new Vend Client.
+	vc := vend.NewClient(Token, DomainPrefix, "")
+	outlets, _, err := vc.Outlets()
+
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("failed while retrieving outlets: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+
+	return outlets
+}
+
+func writeOutletExport(outlets []vend.Outlet) error {
+	file, err := createOutletReport()
+	if err != nil {
+		return err
+	}
+
+	file = addHeaderOutletReport(file)
+	writeOutletReport(file, outlets)
+
+	return nil
+}
+
+func createOutletReport() (*os.File, error) {
 
 	fileName := fmt.Sprintf("%s_export_outlets_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
@@ -84,9 +118,16 @@ func addHeaderOutletReport(file *os.File) *os.File {
 
 func writeOutletReport(file *os.File, outlets []vend.Outlet) *os.File {
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(outlets), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
 	writer := csv.NewWriter(file)
 
 	for _, outlet := range outlets {
+		bar.Increment()
 
 		var line []string
 		line = append(line, *outlet.ID)   //0
@@ -95,6 +136,7 @@ func writeOutletReport(file *os.File, outlets []vend.Outlet) *os.File {
 		// Write line to file.
 		writer.Write(line)
 	}
+	p.Wait()
 	writer.Flush()
 	return file
 

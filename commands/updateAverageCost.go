@@ -9,7 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vend/vend-cli/pkg/csvparser"
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -26,16 +28,19 @@ type ProductCost struct {
 	Cost      string `json:"cost"`
 }
 
-type FailedRequest struct {
-	ProductCost
-	Reason string
+type FailedUpdateAvgCostRequest struct {
+	ProductID string
+	OutletID  string
+	Cost      string
+	Reason    string
 }
 
 var (
-	updateAverageCostCmdmMode string
-	avgCostFilePath           string
-	batchSize                 = 50
-	averageCostEndpoint       = "api/_internal/twirp/vend.polecat.Polecat/SetAverageCosts"
+	failedUpdateAvgCostRequests []FailedUpdateAvgCostRequest
+	updateAverageCostCmdmMode   string
+	avgCostFilePath             string
+	batchSize                   = 50
+	averageCostEndpoint         = "api/_internal/twirp/vend.polecat.Polecat/SetAverageCosts"
 
 	updateAverageCostCmd = &cobra.Command{
 		Use:   "update-average-cost",
@@ -64,10 +69,11 @@ Example:
 		Run: func(cmd *cobra.Command, args []string) {
 			vc := vend.NewClient(Token, DomainPrefix, "")
 			vendClient = &vc
-
 			if parseUpdateAverageCostMode(updateAverageCostCmdmMode) {
+				fmt.Printf("\nRunning command in %s mode\n", color.YellowString("UPDATE"))
 				updateAverageCost()
 			} else {
+				fmt.Printf("\nRunning command in %s mode\n", color.YellowString("PRINT-TEMPLATE"))
 				printAverageCostTemplate()
 			}
 		},
@@ -85,80 +91,64 @@ func init() {
 
 func printAverageCostTemplate() {
 
-	fmt.Println("Template mode chosen...")
-
+	fmt.Println("\nGetting info from vend...")
 	outlets, products, recordsMap, maxSupplier := getInfoForTemplate()
 
-	file, err := createAverageCostTemplate(DomainPrefix)
+	fmt.Println("\nCreating template CSV file...")
+	err := writeAverageCostTemplate(DomainPrefix, outlets, products, recordsMap, maxSupplier)
 	if err != nil {
-		err = fmt.Errorf("Failed creating CSV file %v", err)
+		err = fmt.Errorf("failed creating CSV file %v", err)
 		messenger.ExitWithError(err)
 	}
-	file = addHeadeToTemplate(file, outlets, maxSupplier)
-	file = writeAverageCostTemplate(file, outlets, products, recordsMap, maxSupplier)
 
+	fmt.Println(color.GreenString("\nFinished! 🎉\n"))
 }
 
 func getInfoForTemplate() ([]vend.Outlet, []vend.Product, map[string]map[string]vend.InventoryRecord, int) {
-	vc := *vendClient
 
-	fmt.Println("Getting info for template...")
+	p, err := pbar.CreateMultiBarGroup(3, Token, DomainPrefix)
+	if err != nil {
+		fmt.Println("error creating progress bar group: ", err)
+	}
+	p.FetchDataWithProgressBar("outlets")
+	p.FetchDataWithProgressBar("products")
+	p.FetchDataWithProgressBar("inventory")
 
-	var wg sync.WaitGroup
+	p.MultiBarGroupWait()
+
 	var outlets []vend.Outlet
 	var products []vend.Product
 	var inventoryRecords []vend.InventoryRecord
-	var outletsErr, productsErr, InventoryRecordsErr error
+
+	for err = range p.ErrorChannel {
+		err = fmt.Errorf("error fetching data: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	for data := range p.DataChannel {
+		switch d := data.(type) {
+		case []vend.Outlet:
+			outlets = d
+		case []vend.Product:
+			products = d
+		case []vend.InventoryRecord:
+			inventoryRecords = d
+		}
+	}
+
+	var wg sync.WaitGroup
 	var recordsMap map[string]map[string]vend.InventoryRecord
 	var maxSupplier int
 
-	// Use goroutines to fetch outlets and products concurrently
-	wg.Add(3)
-	go func() {
-		outlets, _, outletsErr = vc.Outlets()
-		wg.Done()
-	}()
-
-	go func() {
-		products, _, productsErr = vc.Products()
-		wg.Done()
-	}()
-
-	go func() {
-		inventoryRecords, InventoryRecordsErr = vc.Inventory()
-		wg.Done()
-	}()
-
-	// Wait for goroutines to finish
-	wg.Wait()
-
-	// Check for errors in fetching outlets and products
-	if outletsErr != nil {
-		err := fmt.Errorf("Failed retrieving outlets: %v", outletsErr)
-		messenger.ExitWithError(err)
-	}
-
-	if productsErr != nil {
-		err := fmt.Errorf("Failed retrieving products: %v", productsErr)
-		messenger.ExitWithError(err)
-	}
-
-	if InventoryRecordsErr != nil {
-		fmt.Println("Error fetching inventory records: %v", InventoryRecordsErr)
-	}
-
 	wg.Add(2)
-
 	go func() {
 		maxSupplier = checkMaxSupplier(products)
 		wg.Done()
 	}()
-
 	go func() {
 		recordsMap = buildRecordsMap(inventoryRecords, outlets)
 		wg.Done()
 	}()
-
 	wg.Wait()
 
 	return outlets, products, recordsMap, maxSupplier
@@ -166,12 +156,11 @@ func getInfoForTemplate() ([]vend.Outlet, []vend.Product, map[string]map[string]
 
 func createAverageCostTemplate(domainPrefix string) (*os.File, error) {
 
-	fileName := fmt.Sprintf("%s_average_cost_worksheet.csv", DomainPrefix)
+	fileName := fmt.Sprintf("%s_average_cost_worksheet_%v.csv", domainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
 		return nil, err
 	}
-
 	return file, err
 }
 
@@ -207,12 +196,27 @@ func addHeadeToTemplate(file *os.File, outlets []vend.Outlet, maxSupplier int) *
 	return file
 }
 
-func writeAverageCostTemplate(file *os.File, outlets []vend.Outlet, products []vend.Product, recordsMap map[string]map[string]vend.InventoryRecord, maxSupplier int) *os.File {
+func writeAverageCostTemplate(domainPrefix string, outlets []vend.Outlet, products []vend.Product, recordsMap map[string]map[string]vend.InventoryRecord, maxSupplier int) error {
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(products), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
+	file, err := createAverageCostTemplate(domainPrefix)
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("failed creating CSV file %v", err)
+		return err
+	}
+	file = addHeadeToTemplate(file, outlets, maxSupplier)
 
 	writer := csv.NewWriter(file)
 
 	for _, product := range products {
-
+		bar.Increment()
 		var productID, productName, trackInventory string
 
 		if product.ID != nil {
@@ -291,20 +295,33 @@ func writeAverageCostTemplate(file *os.File, outlets []vend.Outlet, products []v
 		writer.Write(record)
 	}
 	writer.Flush()
-	return file
+	p.Wait()
+	return nil
 }
 
 func updateAverageCost() {
-	// Read the CSV file
-	productCosts := readAverageCostCSVFile(avgCostFilePath)
 
-	fmt.Printf("Updating %v products\n", len(productCosts))
-	failedProducts := postAverageCosts(productCosts)
-	if len(failedProducts) > 0 {
-		fmt.Printf("There were some errors. Writing failures to csv.. \n")
-		saveFailedRequestsToCSV(failedProducts)
+	fmt.Println("\nReading CSV file...")
+	productCosts, err := readAverageCostCSVFile(avgCostFilePath)
+	if err != nil {
+		err = fmt.Errorf("error reading CSV file: %v", err)
+		messenger.ExitWithError(err)
 	}
-	fmt.Println("Done!")
+
+	fmt.Printf("\nUpdating %v products\n", len(productCosts))
+	count := postAverageCosts(productCosts)
+
+	if len(failedUpdateAvgCostRequests) > 0 {
+		fmt.Println(color.RedString("\nThere were some errors. Writing failures to csv.."))
+		fileName := fmt.Sprintf("%s_failed_update_average_cost_requests_%v.csv", DomainPrefix, time.Now().Unix())
+		err := csvparser.WriteErrorCSV(fileName, failedUpdateAvgCostRequests)
+		if err != nil {
+			messenger.ExitWithError(err)
+			return
+		}
+	}
+
+	fmt.Println(color.GreenString("\nFinished! 🎉\nUpdated %d out of %d requests", count, len(productCosts)))
 }
 
 func parseUpdateAverageCostMode(mode string) bool {
@@ -315,25 +332,44 @@ func parseUpdateAverageCostMode(mode string) bool {
 		if len(avgCostFilePath) > 0 {
 			return true
 		} else {
-			err := fmt.Errorf("Please provide a filename:\nExample:\n%s\n", color.GreenString("vendcli update-average-cost -d DOMAINPREFIX -t TOKEN -m update -f FILENAME.csv"))
+			err := fmt.Errorf("please provide a filename Example: -%s", color.GreenString("vendcli update-average-cost -d DOMAINPREFIX -t TOKEN -m update -f FILENAME.csv"))
 			messenger.ExitWithError(err)
 		}
 	case "print-template":
 		return false
 	default:
-		err := fmt.Errorf("Invalid mode. Please use either 'update' or 'print-template'")
+		err := fmt.Errorf("invalid mode. Please use either 'update' or 'print-template'")
 		messenger.ExitWithError(err)
 	}
 	return false
 }
 
-func readAverageCostCSVFile(pathToFile string) []ProductCost {
-	records, err := openAverageCostCSVFile(pathToFile)
+func readAverageCostCSVFile(pathToFile string) ([]ProductCost, error) {
+
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("Reading CSV")
 	if err != nil {
-		messenger.ExitWithError(err)
+		err = fmt.Errorf("error creating progress bar:%s", err)
+		return nil, err
 	}
 
-	checkAverageCostCSVHeader(records)
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	records, err := openAverageCostCSVFile(pathToFile)
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		return nil, err
+	}
+
+	err = checkAverageCostCSVHeader(records)
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		return nil, err
+	}
+
 	products := []ProductCost{}
 
 	// Loop through the rows, skip the first row (header)
@@ -342,7 +378,6 @@ func readAverageCostCSVFile(pathToFile string) []ProductCost {
 
 		// Zero index is productID, then outletID and cost are in pairs so we increment by 2 from index 1
 		for j := 1; j < len(record); j += 2 {
-
 			product := ProductCost{
 				ProductID: productID,
 				OutletID:  record[j],
@@ -350,136 +385,110 @@ func readAverageCostCSVFile(pathToFile string) []ProductCost {
 			}
 
 			// skip the empty requests
-			if product.Cost == "" {
+			if product.ProductID == "" || product.OutletID == "" || product.Cost == "" {
+				failedUpdateAvgCostRequests = append(failedUpdateAvgCostRequests, FailedUpdateAvgCostRequest{
+					ProductID: product.ProductID,
+					OutletID:  product.OutletID,
+					Cost:      product.Cost,
+					Reason:    "missing fields",
+				})
 				continue
 			}
-
 			products = append(products, product)
 		}
 	}
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
 
-	return products
-
+	return products, nil
 }
 
 func openAverageCostCSVFile(pathToFile string) ([][]string, error) {
 	// Open the file
 	csvFile, err := os.Open(pathToFile)
 	if err != nil {
-		messenger.ExitWithError(err)
+		err = fmt.Errorf(`%s - please check you've specified the right file path.%sTip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`, err, "\n")
+		return nil, err
 	}
 	defer csvFile.Close()
 
 	reader := csv.NewReader(csvFile)
 	records, err := reader.ReadAll()
 	if err != nil {
-		messenger.ExitWithError(err)
+		return nil, err
 	}
 
 	return records, nil
 }
 
 // checkHeader checks if the header has the correct format
-func checkAverageCostCSVHeader(records [][]string) {
+func checkAverageCostCSVHeader(records [][]string) error {
 	// check if the first column has "product_id", and the number of columns is odd
 	if len(records) == 0 || len(records[0]) < 2 || records[0][0] != "product_id" || len(records[0])%2 == 0 {
-		err := fmt.Errorf("Warning: Incorrect header format. Expected format: 'product_id, outlet_id, cost, ...'")
-		messenger.ExitWithError(err)
+		err := fmt.Errorf("warning: Incorrect header format. Expected format: 'product_id, outlet_id, cost, ...'")
+		return err
 	}
+	return nil
 }
 
-func postAverageCosts(productCosts []ProductCost) [][]FailedRequest {
-	vc := *vendClient
+func postAverageCosts(productCosts []ProductCost) int {
 
+	vc := *vendClient
 	url := fmt.Sprintf("https://%s.retail.lightspeed.app/%s", DomainPrefix, averageCostEndpoint)
 
-	failedRequests := [][]FailedRequest{}
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(productCosts), "Updating average costs")
+	if err != nil {
+		fmt.Printf("error creating progress bar:%s\n", err)
+	}
 
-	// Split the ProductCosts into batches
+	var count int = 0
 	for i := 0; i < len(productCosts); i += batchSize {
 		endIndex := i + batchSize
 		if endIndex > len(productCosts) {
 			endIndex = len(productCosts)
 		}
-
-		// Extract the current batch
 		currentBatch := productCosts[i:endIndex]
-
-		fmt.Println("Posting products: ", i, " - ", endIndex-1)
 
 		// Create the request body
 		body := AverageCostRequestBody{
 			ProductCosts: currentBatch,
 		}
-
-		// Make the request
 		_, err := vc.MakeRequest("POST", url, body)
 		if err != nil {
-			fmt.Println("Error posting batch")
-			failedRequestsFromBatch := retryBatch(currentBatch, url, i)
-			failedRequests = append(failedRequests, failedRequestsFromBatch)
+			successes := retryBatch(currentBatch, url, bar)
+			count += successes
+			continue
 		}
-
+		bar.IncBy(len(currentBatch))
+		count += len(currentBatch)
 	}
-	return failedRequests
-
+	p.Wait()
+	return count
 }
 
-func retryBatch(productCosts []ProductCost, url string, index int) []FailedRequest {
-	fmt.Println("Retrying products in batch individually...")
+func retryBatch(productCosts []ProductCost, url string, bar *pbar.CustomBar) int {
 	vc := *vendClient
-	failedRequests := []FailedRequest{}
 
-	for i, request := range productCosts {
-		fmt.Println("Retrying product:", i+index)
-
+	var count int = 0
+	for _, request := range productCosts {
+		bar.Increment()
 		body := AverageCostRequestBody{
 			ProductCosts: []ProductCost{request},
 		}
-
-		_, err := vc.MakeRequest("POST", url, body)
+		resp, err := vc.MakeRequest("POST", url, body)
 		if err != nil {
-			failedRequest := FailedRequest{
-				ProductCost: request,
-				Reason:      err.Error(),
-			}
-			failedRequests = append(failedRequests, failedRequest)
+			err = fmt.Errorf("failure when making request: %v response: %s", err, string(resp))
+			failedUpdateAvgCostRequests = append(failedUpdateAvgCostRequests,
+				FailedUpdateAvgCostRequest{
+					ProductID: request.ProductID,
+					OutletID:  request.OutletID,
+					Cost:      request.Cost,
+					Reason:    err.Error(),
+				})
+			continue
 		}
+		count += 1
 	}
-
-	return failedRequests
-}
-
-func saveFailedRequestsToCSV(failedRequests [][]FailedRequest) {
-
-	fileName := fmt.Sprintf("%s_failed_requests__%v.csv", DomainPrefix, time.Now().Unix())
-	// Create a new file
-	file, err := os.Create(fileName)
-	if err != nil {
-		fmt.Println("Error creating file:", err)
-		return
-	}
-	defer file.Close()
-
-	// Write the header
-	header := []string{"product_id", "outlet_id", "cost", "reason"}
-	writer := csv.NewWriter(file)
-	err = writer.Write(header)
-	if err != nil {
-		fmt.Println("Error writing failed requests to file:", err)
-		return
-	}
-
-	// Write the failed requests
-	for _, batch := range failedRequests {
-		for _, request := range batch {
-			record := []string{request.ProductID, request.OutletID, fmt.Sprintf("%v", request.Cost), request.Reason}
-			err := writer.Write(record)
-			if err != nil {
-				fmt.Println("Error writing failed requests to file:", err)
-				return
-			}
-		}
-	}
-	writer.Flush()
+	return count
 }

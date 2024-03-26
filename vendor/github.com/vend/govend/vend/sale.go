@@ -214,7 +214,7 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 // 	if outlet != "" {
 // 		oID, err := c.getOutlet(outlet)
 // 		if err != nil {
-// 			fmt.Printf("\nError retrieving Outlets %s", err)
+// 			fmt.Printf("Error retrieving Outlets %s", err)
 // 			return AllSales, err
 // 		}
 // 		outletID = oID
@@ -235,7 +235,7 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 // 	response := &SalesResponse{}
 // 	err = json.Unmarshal(data, response)
 // 	if err != nil {
-// 		fmt.Printf("\nError unmarshalling Vend register payload: %s", err)
+// 		fmt.Printf("Error unmarshalling Vend register payload: %s", err)
 // 		return nil, err
 // 	}
 
@@ -264,7 +264,7 @@ func (c *Client) GetStartVersion(dateFrom time.Time, dateStr string) (int64, err
 
 // 		err = json.Unmarshal(data, response)
 // 		if err != nil {
-// 			// fmt.Printf("\nError unmarshalling Vend register payload: %s", err)
+// 			// fmt.Printf("Error unmarshalling Vend register payload: %s", err)
 // 			log.Printf("error decoding response: %v", err)
 // 			if e, ok := err.(*json.SyntaxError); ok {
 // 				log.Printf("syntax error at byte offset %d", e.Offset)

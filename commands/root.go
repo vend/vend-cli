@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"encoding/csv"
 	"fmt"
-	"os"
 
 	"github.com/fatih/color"
 	homedir "github.com/mitchellh/go-homedir"
@@ -78,39 +76,3 @@ func initConfig() {
 }
 
 // Read passed CSV and returns the IDs
-func readCSV(FilePath string) ([]string, error) {
-
-	// Open our provided CSV file
-	file, err := os.Open(FilePath)
-	if err != nil {
-		errorMsg := `error opening csv file - please check you've specified the right file
-
-Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
-		fmt.Println(errorMsg, "\n")
-		return nil, err
-	}
-
-	// Make sure to close the file
-	defer file.Close()
-
-	// Create CSV read on our file
-	reader := csv.NewReader(file)
-
-	// Read the rest of the data from the CSV
-	rows, err := reader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
-	var rowNumber int
-	entities := []string{}
-
-	// Loop through rows and assign them
-	for _, row := range rows {
-		rowNumber++
-		entityIDs := row[0]
-		entities = append(entities, entityIDs)
-	}
-
-	return entities, err
-}

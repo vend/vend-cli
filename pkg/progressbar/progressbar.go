@@ -3,6 +3,8 @@ package progressbar
 import (
 	"errors"
 	"fmt"
+	"math/rand"
+	"os"
 	"time"
 
 	"strings"
@@ -11,6 +13,8 @@ import (
 	"github.com/fatih/color"
 	mpb "github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
+	"github.com/vend/govend/vend"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // Name Lengths
@@ -33,20 +37,20 @@ const (
 )
 
 const (
-	BAR_WIDTH = 80
-)
-
-const (
-	// not sure how the relationship with this length is with the length of mpb.BarWidth is calculated
-	// this matches a bar width of 80
-	// TODO: figure out how to calculate the length of the bar based on set mp.BarWidth
-	completeBar = "[🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢🁢]"
+	DEFAULT_BAR_WIDTH   = 80
+	DEFAULT_NAME_LENGTH = MEDIUM_NAME
+	BUFFER              = 20 // arbitrary buffer to add to the bar width
 )
 
 type ProgressBar struct {
-	Progress   *mpb.Progress
-	NameLength int
-	Defaults   *Defaults
+	Progress     *mpb.Progress
+	NameLength   int
+	BarWidth     int
+	Defaults     *Defaults
+	VendClient   *vend.Client
+	WaitGroup    *sync.WaitGroup
+	ErrorChannel chan error
+	DataChannel  chan interface{}
 }
 
 type CustomBar struct {
@@ -62,11 +66,43 @@ func (d *Defaults) LoadingName(name string) string {
 }
 
 func (d *Defaults) CompletedName(name string) string {
-	return fmt.Sprintf(" %s | %scomplete %s", name, GREEN, RESET) // green
+	return fmt.Sprintf(" %s | %sCOMPLETE %s", name, GREEN, RESET) // green
 }
 
 func (d *Defaults) ErrorName(name string) string {
 	return fmt.Sprintf(" %s | %s  ERROR  %s", name, RED, RESET) // red
+}
+
+func setBarWidth() (int, error) {
+	terminalWidth, _, err := terminal.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		return 0, errors.New("error getting terminal size")
+	}
+
+	default_total_width := DEFAULT_BAR_WIDTH + DEFAULT_NAME_LENGTH + BUFFER
+
+	switch {
+	case terminalWidth > default_total_width:
+		return DEFAULT_BAR_WIDTH, nil
+	case terminalWidth < default_total_width:
+		adjustedWidth := terminalWidth - DEFAULT_NAME_LENGTH - BUFFER
+		if adjustedWidth > 0 {
+			return adjustedWidth, nil
+		} else {
+			return 0, errors.New("terminal too small for progress bar")
+		}
+	default:
+		return DEFAULT_BAR_WIDTH, nil
+	}
+}
+
+func (p *ProgressBar) setCompleteBarWidth() string {
+	var completeBar = "["
+	for i := 0; i < p.BarWidth-2; i++ { // -2 to account for the brackets
+		completeBar += "🁢"
+	}
+	completeBar += "]"
+	return completeBar
 }
 
 func (d *Defaults) CreateBarStyle(leftBound, rightBound, filler, tip, padding, color string) mpb.BarStyleComposer {
@@ -89,27 +125,53 @@ func (d *Defaults) CreateBarStyle(leftBound, rightBound, filler, tip, padding, c
 	})
 }
 
-func CreateMultiBarGroup(wg *sync.WaitGroup) *ProgressBar {
-	return &ProgressBar{Progress: mpb.New(mpb.WithWaitGroup(wg), mpb.WithWidth(BAR_WIDTH))}
+// creates a wait group and progress bar group
+func CreateMultiBarGroup(numBars int, token string, domain string) (*ProgressBar, error) {
+	width, err := setBarWidth()
+	if err != nil {
+		return &ProgressBar{}, err
+	}
+	var vc vend.Client
+
+	var wg sync.WaitGroup
+	if token != "" {
+		vc = vend.NewClient(token, domain, "")
+	}
+
+	// each fetchData has a data1 and data2, so we need a buffer that is 2x the num of routines
+	dataChannel := make(chan interface{}, numBars*2)
+	errChannel := make(chan error, numBars)
+
+	group := ProgressBar{
+		Progress:     mpb.New(mpb.WithWaitGroup(&wg), mpb.WithWidth(width)),
+		BarWidth:     width,
+		NameLength:   DEFAULT_NAME_LENGTH,
+		WaitGroup:    &wg,
+		VendClient:   &vc,
+		ErrorChannel: errChannel,
+		DataChannel:  dataChannel,
+	}
+	return &group, nil
 }
 
 func CreateSingleBar() *ProgressBar {
-	return &ProgressBar{Progress: mpb.New(mpb.WithWidth(BAR_WIDTH))}
+	width, _ := setBarWidth()
+	return &ProgressBar{Progress: mpb.New(mpb.WithWidth(width)), BarWidth: width}
 }
 
-func (p *ProgressBar) AddProgressBar(total int, name string) (*mpb.Bar, error) {
+func (p *ProgressBar) AddProgressBar(total int, name string) (*CustomBar, error) {
 	style := p.Defaults.CreateBarStyle("[", "]", "🁢", "", "_", CYAN) // cyan
-	return p.AddBarWithOptions(style, total, name, SMALL_NAME)
+	return p.AddBarWithOptions(style, total, name, DEFAULT_NAME_LENGTH)
 }
 
-func (p *ProgressBar) AddBarWithOptions(barStyle mpb.BarStyleComposer, total int, name string, nameLength int) (*mpb.Bar, error) {
+func (p *ProgressBar) AddBarWithOptions(barStyle mpb.BarStyleComposer, total int, name string, nameLength int) (*CustomBar, error) {
 
 	var bar *mpb.Bar
 	var err error
 	name, err = setNameLength(name, nameLength)
 
 	if err != nil {
-		return bar, errors.New(fmt.Sprintf("set name length error: %s", err))
+		return &CustomBar{Bar: bar}, errors.New(fmt.Sprintf("set name length error: %s", err))
 	}
 
 	bar = p.Progress.New(int64(total), barStyle,
@@ -120,25 +182,24 @@ func (p *ProgressBar) AddBarWithOptions(barStyle mpb.BarStyleComposer, total int
 				decor.Name(p.Defaults.LoadingName(name)), p.Defaults.CompletedName(name)), p.Defaults.ErrorName(name)),
 		),
 		mpb.AppendDecorators(
-			decor.NewPercentage(YELLOW+" %d "+RESET, decor.WCSyncSpace),
+			decor.NewPercentage("%d", decor.WCSyncSpace),
 		),
 	)
 
-	return bar, nil
+	return &CustomBar{Bar: bar}, nil
 }
 
 func (p *ProgressBar) AddIndeterminateProgressBar(name string) (*CustomBar, error) {
 	style := p.Defaults.CreateBarStyle("[", "]", "_", "🁢🁢🁢🁢🁢🁢🁢🁢", "_", CYAN) // cyan
 	var bar *mpb.Bar
 	var err error
-	name, err = setNameLength(name, SMALL_NAME)
-
+	name, err = setNameLength(name, DEFAULT_NAME_LENGTH)
 	if err != nil {
 		return &CustomBar{Bar: bar}, errors.New(fmt.Sprintf("set name length error: %s", err))
 	}
 
 	bar = p.Progress.New(int64(-1), style,
-		mpb.BarFillerOnComplete(fmt.Sprintf("%s%s%s", CYAN, completeBar, RESET)),
+		mpb.BarFillerOnComplete(fmt.Sprintf("%s%s%s", CYAN, p.setCompleteBarWidth(), RESET)), // p.setCompleteBarWidth()
 		mpb.PrependDecorators(
 			decor.OnAbort(decor.OnComplete(
 				decor.Meta(decor.Spinner(nil, decor.WCSyncSpace), toMetaFunc(color.New(color.FgRed))), "✔"), "✘"),
@@ -156,20 +217,156 @@ func (p *ProgressBar) AddIndeterminateProgressBar(name string) (*CustomBar, erro
 
 }
 
+func (p *ProgressBar) fetchData(name string) {
+	defer p.WaitGroup.Done()
+	vc := *p.VendClient
+	bar, err := p.AddIndeterminateProgressBar(name)
+	if err != nil {
+		p.ErrorChannel <- err
+		return
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	var data interface{}
+	var data2 interface{}
+
+	switch name {
+	case "products":
+		data, data2, err = vc.Products()
+	case "outlets":
+		data, data2, err = vc.Outlets()
+	case "outlet-taxes":
+		data, err = vc.OutletTaxes()
+	case "taxes":
+		data, data2, err = vc.Taxes()
+	case "inventory":
+		data, err = vc.Inventory()
+	case "product-tags":
+		data, err = vc.Tags()
+	case "registers":
+		data, err = vc.Registers()
+	case "users":
+		data, err = vc.Users()
+	case "user":
+		data, err = vc.User()
+	case "customers":
+		data, err = vc.Customers()
+	case "customer-groups":
+		data, err = vc.CustomerGroups()
+	case "store-credits":
+		data, err = vc.StoreCredits()
+	case "gift-cards":
+		data, err = vc.GiftCards()
+	}
+
+	close(done)
+
+	if err != nil {
+		bar.AbortBar()
+		p.ErrorChannel <- err
+	} else {
+		p.DataChannel <- data
+		p.DataChannel <- data2
+	}
+	bar.SetIndeterminateBarComplete()
+}
+
+func (p *ProgressBar) FetchDataWithProgressBar(name string) {
+	p.WaitGroup.Add(1)
+	go p.fetchData(name)
+}
+
+func (p *ProgressBar) FetchSalesDataWithProgressBar(versionAfter int64) {
+	p.WaitGroup.Add(1)
+	go p.fetchSalesData(versionAfter)
+}
+
+func (p *ProgressBar) fetchSalesData(versionAfter int64) {
+	defer p.WaitGroup.Done()
+	vc := *p.VendClient
+	bar, err := p.AddIndeterminateProgressBar("sales")
+	if err != nil {
+		p.ErrorChannel <- err
+		return
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	data, err := vc.SalesAfter(versionAfter)
+
+	close(done)
+
+	if err != nil {
+		bar.AbortBar()
+		p.ErrorChannel <- err
+	} else {
+		p.DataChannel <- data
+	}
+	bar.SetIndeterminateBarComplete()
+}
+
+type Task func(args ...interface{}) interface{}
+
+// perform a task with an indeterminate progress bar, "task" is a function with a single return
+func (p *ProgressBar) PerformTaskWithProgressBar(barName string, task Task, args ...interface{}) {
+	p.WaitGroup.Add(1)
+	go p.performTask(barName, task, args...)
+}
+
+func (p *ProgressBar) performTask(barName string, task Task, args ...interface{}) {
+	defer p.WaitGroup.Done()
+	bar, err := p.AddIndeterminateProgressBar(barName)
+	if err != nil {
+		p.ErrorChannel <- err
+		return
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	p.DataChannel <- task(args...)
+	close(done)
+	bar.SetIndeterminateBarComplete()
+}
+
+func (p *ProgressBar) MultiBarGroupWait() {
+	p.WaitGroup.Wait()
+	p.Progress.Wait()
+	close(p.ErrorChannel)
+	close(p.DataChannel)
+}
+
 func (p *ProgressBar) Wait() {
 	p.Progress.Wait()
 }
 
 func (bar *CustomBar) iterateIndeterminateBar() {
-	bar.Bar.IncrBy(5)
-	// 100 is arbitary and only matters compared to the iteration amount. 100:5 = 20 iterations for a full bar
-	if bar.Bar.Current() > 100 {
-		bar.Bar.SetCurrent(0)
+	current := bar.Bar.Current()
+	switch {
+	case current == 0:
+		bar.home()
+		// 100 is arbitary and only matters compared to the iteration amount. 100:5 = 20 iterations for a full bar
+	case current > 100:
+		bar.home()
+	default:
+		bar.Bar.IncrBy(5)
 	}
+}
+
+func (bar *CustomBar) home() {
+	randomNumber := int64(rand.Intn(11)) // between 0 and 10
+	bar.Bar.SetCurrent(randomNumber)
 }
 
 func (bar *CustomBar) Increment() {
 	bar.Bar.Increment()
+}
+
+func (bar *CustomBar) IncBy(amount int) {
+	bar.Bar.IncrBy(amount)
 }
 
 func (bar *CustomBar) AnimateIndeterminateBar(done chan struct{}) {

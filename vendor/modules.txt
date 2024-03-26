@@ -58,9 +58,6 @@ github.com/pmezard/go-difflib/difflib
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/sirupsen/logrus v1.7.0
-## explicit; go 1.13
-github.com/sirupsen/logrus
 # github.com/spf13/afero v1.1.2
 ## explicit
 github.com/spf13/afero
@@ -92,7 +89,7 @@ github.com/vbauerster/mpb/v8
 github.com/vbauerster/mpb/v8/cwriter
 github.com/vbauerster/mpb/v8/decor
 github.com/vbauerster/mpb/v8/internal
-# github.com/vend/govend v0.5.0
+# github.com/vend/govend v0.8.0
 ## explicit
 github.com/vend/govend/vend
 # github.com/wallclockbuilder/stringutil v0.0.0-20151229105100-650d35b119a3
@@ -100,10 +97,17 @@ github.com/vend/govend/vend
 github.com/wallclockbuilder/stringutil
 # github.com/wallclockbuilder/testify v0.0.0-20150512124233-dab07ac62d49
 ## explicit
-# golang.org/x/sys v0.16.0
+# golang.org/x/crypto v0.19.0
 ## explicit; go 1.18
+golang.org/x/crypto/ssh/terminal
+# golang.org/x/sys v0.17.0
+## explicit; go 1.18
+golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
+# golang.org/x/term v0.17.0
+## explicit; go 1.18
+golang.org/x/term
 # golang.org/x/text v0.14.0
 ## explicit; go 1.18
 golang.org/x/text/transform

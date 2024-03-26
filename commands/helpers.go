@@ -14,10 +14,7 @@ import (
 func loadRecordsFromCSV(path string) ([]string, [][]string, error) {
 	raw, err := ioutil.ReadFile(path)
 	if err != nil {
-		errorMsg := `error opening csv file - please check you've specified the right file
-
-Tip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`
-		fmt.Println(errorMsg, "\n")
+		err = fmt.Errorf(`%s - please check you've specified the right file path.%sTip: make sure you're in the same folder as your file. Use "cd ~/Downloads" to navigate to your Downloads folder`, err, "\n")
 		return nil, nil, err
 	}
 	return readRecords(raw)
@@ -58,6 +55,9 @@ func writeCSV(fileName string, headers []string, rows [][]string) error {
 // makeRequest a custom request call that returns status code and message
 func makeRequest(method, url string, body interface{}) (int, string, error) {
 	req, err := vendClient.NewRequest(method, url, body)
+	if err != nil {
+		return 0, "", err
+	}
 
 	client := http.DefaultClient
 	resp, err := client.Do(req)

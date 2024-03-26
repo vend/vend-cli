@@ -31,7 +31,7 @@ type TaxRates struct {
 	DisplayName *string  `json:"display_name"`
 }
 
-func (c *Client) Taxes() ([]Taxes, map[string]string, error) {
+func (c *Client) Taxes() ([]Taxes, map[string]Taxes, error) {
 	taxes := []Taxes{}
 	page := []Taxes{}
 
@@ -62,12 +62,12 @@ func (c *Client) Taxes() ([]Taxes, map[string]string, error) {
 
 	}
 
-	TaxesMap := make(map[string]string)
+	taxesMap := make(map[string]Taxes)
 	for _, tax := range taxes {
-		TaxesMap[*tax.ID] = *tax.DisplayName
+		taxesMap[*tax.ID] = tax
 	}
 
-	return taxes, TaxesMap, err
+	return taxes, taxesMap, err
 
 }
 

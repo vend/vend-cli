@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/vend/vend-cli/pkg/messenger"
+	pbar "github.com/vend/vend-cli/pkg/progressbar"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -33,35 +34,63 @@ func init() {
 // Run executes the process of grabbing Users then writing them to CSV.
 func getAllUsers() {
 
-	// Create new Vend Client.
-	vc := vend.NewClient(Token, DomainPrefix, "")
-
 	// Get Users.
 	fmt.Println("\nRetrieving Users from Vend...")
-	users, err := vc.Users()
-	if err != nil {
-		err = fmt.Errorf("Failed retrieving Users from Vend %v", err)
-		messenger.ExitWithError(err)
-	}
+	users := fetchDataForExportUsers()
 
 	// Write Users to CSV
-	fmt.Println("Writing Users to CSV file...")
-	err = uWriteFile(users)
+	fmt.Println("\nWriting Users to CSV file...")
+	err := uWriteFile(users)
 	if err != nil {
-		err = fmt.Errorf("Failed writing Users to CSV: %v", err)
+		err = fmt.Errorf("failed writing Users to CSV: %v", err)
 		messenger.ExitWithError(err)
 	}
 
-	fmt.Println(color.GreenString("\nExported %v Users\n", len(users)))
+	fmt.Println(color.GreenString("\nExported %v Users🎉\n", len(users)))
+}
+
+func fetchDataForExportUsers() []vend.User {
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddIndeterminateProgressBar("users")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
+	done := make(chan struct{})
+	go bar.AnimateIndeterminateBar(done)
+
+	vc := vend.NewClient(Token, DomainPrefix, "")
+	users, err := vc.Users()
+
+	if err != nil {
+		bar.AbortBar()
+		p.Wait()
+		err = fmt.Errorf("failed while retrieving Users: %v", err)
+		messenger.ExitWithError(err)
+	}
+
+	bar.SetIndeterminateBarComplete()
+	p.Wait()
+	close(done)
+
+	return users
 }
 
 // WriteFile writes customer info to file.
 func uWriteFile(users []vend.User) error {
 
+	p := pbar.CreateSingleBar()
+	bar, err := p.AddProgressBar(len(users), "Writing CSV")
+	if err != nil {
+		fmt.Printf("Error creating progress bar:%s\n", err)
+	}
+
 	// Create a blank CSV file.
 	fileName := fmt.Sprintf("%s_user_export_%v.csv", DomainPrefix, time.Now().Unix())
 	file, err := os.Create(fmt.Sprintf("./%s", fileName))
 	if err != nil {
+		bar.AbortBar()
+		p.Wait()
 		return err
 	}
 
@@ -87,6 +116,7 @@ func uWriteFile(users []vend.User) error {
 
 	// Now loop through each Users object and populate the CSV.
 	for _, user := range users {
+		bar.Increment()
 
 		var id, username, displayName, accountType, email, restrictedOutlet, createdAt, deletedAt string
 
@@ -127,7 +157,7 @@ func uWriteFile(users []vend.User) error {
 
 		writer.Write(record)
 	}
-
+	p.Wait()
 	writer.Flush()
 	return err
 }
