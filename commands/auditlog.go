@@ -81,7 +81,7 @@ func aWriteFile(auditEvents []vend.AuditLog) error {
 	}
 
 	// Create a blank CSV file
-	filename := fmt.Sprintf("%s_audit_log_%v.csv", DomainPrefix, time.Now().Unix())
+	filename := fmt.Sprintf("%s_audit_log_f%s_t%s.csv", DomainPrefix, dateFrom, dateTo)
 	file, err := os.Create(fmt.Sprintf("./%s", filename))
 	if err != nil {
 		bar.AbortBar()
